@@ -17,7 +17,7 @@ local function build_ctx()
     end,
     get_players = function()
       local out = {}
-      for _, p in ipairs(_G.AllPlayers) do
+      for _, p in ipairs(_G.AllPlayers or {}) do
         local mgr = p.components and p.components.kaachievementmanager
         if mgr then
           local days = (p.components.age and p.components.age:GetAgeInDays()) or 0
@@ -29,7 +29,7 @@ local function build_ctx()
       end
       return out
     end,
-    now = function() return _G.os.time() end,
+    now = function() return (_G.os and _G.os.time()) or 0 end,
     write = function(fn, str) _G.TheSim:SetPersistentString(fn, str, false) end,
     json_encode = function(t) return json.encode(t) end,
     title_of = function(cat, name)
@@ -48,7 +48,9 @@ AddPrefabPostInit("world", function(world)
   world:DoPeriodicTask(interval, WriteNow)
   world:ListenForEvent("ms_save", WriteNow)
   world:ListenForEvent("ms_playerdespawn", WriteNow)
-  world:DoTaskInTime(5, WriteNow) -- initial dump shortly after load
+  -- Initial dump shortly after load; an early/empty snapshot self-heals via the
+  -- merge step (max days + earliest unlock) on the next cycle.
+  world:DoTaskInTime(5, WriteNow)
 end)
 
 -- Low-latency: rewrite immediately on a fresh unlock by wrapping the global.
