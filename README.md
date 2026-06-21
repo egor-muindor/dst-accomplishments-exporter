@@ -4,6 +4,8 @@ A **server-only** companion mod for *Don't Starve Together* that exports, per cl
 
 Depends on the [Accomplishments](https://steamcommunity.com/sharedfiles/filedetails/?id=2843097516) mod (Steam Workshop `2843097516`). The original mod is **never modified** — data is read through the shared `_G` environment.
 
+> **Deploying on a real server?** See **[DEPLOYMENT.md](DEPLOYMENT.md)** — a step-by-step production runbook (install on every shard, run the merger, monitoring, troubleshooting).
+
 ---
 
 ## Overview

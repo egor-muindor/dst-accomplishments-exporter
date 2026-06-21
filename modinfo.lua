@@ -1,7 +1,7 @@
 name = "Accomplishments Exporter"
 description = "Server-only companion to Accomplishments. Exports klei_id + nickname + unlocked achievements + in-game days survived to a JSON file, refreshed at least once per minute."
 author = "egor"
-version = "1.0.0"
+version = "1.0.1"
 
 api_version = 10
 dst_compatible = true
