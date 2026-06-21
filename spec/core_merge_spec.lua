@@ -37,11 +37,13 @@ describe("merge_snapshot / mark_all_offline", function()
     assert.are.equal(1, n)
   end)
 
-  it("mark_all_offline flips online to false", function()
+  it("mark_all_offline flips online to false and clears current_shard", function()
     local db = {}
     core.merge_snapshot(db, snap("1", 100, { KU_a = rec("KU_a", 5, 100) }))
+    assert.are.equal("1", db.KU_a.current_shard)
     core.mark_all_offline(db)
     assert.is_false(db.KU_a.online)
+    assert.is_nil(db.KU_a.current_shard)
   end)
   it("keeps the earliest unlocked_irl on conflict (re-merge is a no-op)", function()
     local db = {}

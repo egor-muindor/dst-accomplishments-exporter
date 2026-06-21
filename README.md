@@ -123,7 +123,7 @@ LUA_PATH="./scripts/?.lua;./tools/?.lua;${LUA_PATH:-;;}" \
   lua tools/acm_merge.lua --root <cluster_root> --out <out_file>
 ```
 
-Optional `--prev <path>` overrides the file used as the persistent carry-forward store (defaults to `--out`). The `acm_merge_loop.sh` and systemd options below set `LUA_PATH` for you.
+Optional `--prev <path>` overrides the file used as the persistent carry-forward store (defaults to `--out`). The `acm_merge_loop.sh` loop and the systemd unit both set `LUA_PATH` for you (the unit evals `luarocks path` in its `ExecStart`, so `luarocks` must be on the service user's PATH).
 
 ### systemd (Linux servers)
 

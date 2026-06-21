@@ -73,8 +73,13 @@ function M.merge_snapshot(db, snapshot)
   return db
 end
 
+-- current_shard is only meaningful while online; clear it so offline records don't
+-- advertise a stale shard (online players get it re-set by merge_snapshot).
 function M.mark_all_offline(db)
-  for _, p in pairs(db) do p.online = false end
+  for _, p in pairs(db) do
+    p.online = false
+    p.current_shard = nil
+  end
   return db
 end
 
@@ -112,7 +117,8 @@ function M.build_export(db, meta)
 end
 
 -- True iff (now - generated_irl) <= max_age. Returns false (not error) when any argument
--- is not a number, so a missing/garbage timestamp reads as "stale".
+-- is not a number, so a missing/garbage timestamp reads as "stale". Exposed for specs and
+-- external callers; the live healthcheck is tools/check_fresh.sh (kept consistent: <=, 90s).
 function M.is_fresh(generated_irl, now, max_age)
   if type(generated_irl) ~= "number" or type(now) ~= "number"
      or type(max_age) ~= "number" then

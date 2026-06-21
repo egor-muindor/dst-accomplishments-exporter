@@ -3,7 +3,8 @@ Description=Accomplishments Exporter merge
 
 [Service]
 Type=oneshot
-# CONFIGURE: install dir (/opt/acm-exporter), lua path (/usr/bin/lua), and cluster
-# root + output path (/path/to/cluster) must be edited for your deployment.
-Environment=LUA_PATH=/opt/acm-exporter/scripts/?.lua;/opt/acm-exporter/tools/?.lua;;
-ExecStart=/usr/bin/lua /opt/acm-exporter/tools/acm_merge.lua --root /path/to/cluster --out /path/to/cluster/acm_export.json
+# CONFIGURE: install dir (/opt/acm-exporter) and cluster root + output path
+# (/path/to/cluster). `luarocks` and `lua` must be on the service user's PATH.
+# eval "$(luarocks path)" puts the dkjson rocks tree on LUA_PATH (incl. --local installs);
+# the mod's scripts/ + tools/ are prepended so acm_core/acm_merge resolve.
+ExecStart=/bin/sh -c 'eval "$(luarocks path)"; export LUA_PATH="/opt/acm-exporter/scripts/?.lua;/opt/acm-exporter/tools/?.lua;$LUA_PATH;;"; exec lua /opt/acm-exporter/tools/acm_merge.lua --root /path/to/cluster --out /path/to/cluster/acm_export.json'
