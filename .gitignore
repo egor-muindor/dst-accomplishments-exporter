@@ -1,4 +1,7 @@
 build/
 lua_modules/
+# CI installs Lua deps in-workspace (gh-actions-luarocks/-lua); never commit them.
+.luarocks/
+.lua/
 node_modules/
 *.log
