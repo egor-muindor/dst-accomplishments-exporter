@@ -56,4 +56,52 @@ describe("acm_merge.run", function()
     assert.is_table(res.players.KU_a)
     assert.are.equal("NEW", res.cluster_session)
   end)
+
+  it("merges only the current session's partials (ignores stale old-world shards)", function()
+    local dir = TMP .. "/acm_mixed"; os.execute("rm -rf " .. dir .. " && mkdir -p " .. dir)
+    local out = dir .. "/acm_export.json"
+    write(dir .. "/acm_export_shard_old.json", { schema_version = 1, cluster_session = "OLD", shard_id = "old",
+      generated_irl = 1000, players = { KU_old = { klei_id = "KU_old", name = "Old",
+        days_survived = 50, last_seen_irl = 1000, achievements = {} } } })
+    write(dir .. "/acm_export_shard_new.json", { schema_version = 1, cluster_session = "NEW", shard_id = "new",
+      generated_irl = 2000, players = { KU_new = { klei_id = "KU_new", name = "New",
+        days_survived = 1, last_seen_irl = 2000, achievements = {} } } })
+    local res = merge.run({ root = dir, out = out })
+    assert.are.equal("NEW", res.cluster_session)
+    assert.is_table(res.players.KU_new)
+    assert.is_nil(res.players.KU_old)
+    assert.are.equal(1, res.player_count)
+  end)
+
+  it("skips malformed partials (torn JSON and wrong-typed fields) without crashing", function()
+    local dir = TMP .. "/acm_torn"; os.execute("rm -rf " .. dir .. " && mkdir -p " .. dir)
+    local out = dir .. "/acm_export.json"
+    write(dir .. "/acm_export_shard_1.json", { schema_version = 1, cluster_session = "S1", shard_id = "1",
+      generated_irl = 1000, players = { KU_a = { klei_id = "KU_a", name = "A",
+        days_survived = 1, last_seen_irl = 1000, achievements = {} } } })
+    local f = assert(io.open(dir .. "/acm_export_shard_2.json", "w")); f:write('{ "players": { "KU_b"'); f:close()
+    local f2 = assert(io.open(dir .. "/acm_export_shard_3.json", "w"))
+    f2:write('{"schema_version":1,"cluster_session":"S1","shard_id":"3","generated_irl":1200,"players":"nope"}')
+    f2:close()
+    local res = merge.run({ root = dir, out = out })
+    assert.are.equal(1, res.player_count)
+    assert.is_table(res.players.KU_a)
+  end)
+
+  it("encodes empty players/achievements as JSON objects ({}) not arrays ([])", function()
+    local dir = TMP .. "/acm_obj"; os.execute("rm -rf " .. dir .. " && mkdir -p " .. dir)
+    local out = dir .. "/acm_export.json"
+    merge.run({ root = dir, out = out })
+    local fh = assert(io.open(out)); local raw = fh:read("*a"); fh:close()
+    assert.is_truthy(raw:find('"players"%s*:%s*{%s*}'))
+    assert.is_truthy(raw:find('"cluster_session"'))
+    write(out, { schema_version = 1, cluster_session = "S1", generated_irl = 1, player_count = 1,
+      players = { KU_z = { klei_id = "KU_z", name = "Z", days_survived = 1, last_seen_irl = 1, online = true, achievements = {} } } })
+    write(dir .. "/acm_export_shard_1.json", { schema_version = 1, cluster_session = "S1", shard_id = "1",
+      generated_irl = 2000, players = { KU_a = { klei_id = "KU_a", name = "A",
+        days_survived = 1, last_seen_irl = 2000, achievements = {} } } })
+    merge.run({ root = dir, out = out })
+    local fh2 = assert(io.open(out)); local raw2 = fh2:read("*a"); fh2:close()
+    assert.is_nil(raw2:find("%[%]"))
+  end)
 end)

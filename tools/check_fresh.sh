@@ -6,7 +6,10 @@ FILE="${1:?file}"; MAX_AGE="${2:-90}"
 python3 - "$FILE" "$MAX_AGE" <<'PY'
 import json, sys, time
 file, max_age = sys.argv[1], int(sys.argv[2])
-with open(file) as fh: data = json.load(fh)
+try:
+    with open(file) as fh: data = json.load(fh)
+except Exception as e:
+    print(f"unreadable: {e}"); sys.exit(1)
 gen = data.get("generated_irl")
 if not isinstance(gen, (int, float)):
     print("no generated_irl"); sys.exit(1)
