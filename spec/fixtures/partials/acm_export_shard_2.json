@@ -3,4 +3,4 @@
       "days_survived": 9, "last_seen_irl": 1100,
       "achievements": { "Time/firstnight": { "title": "The Beginning", "day": 1, "unlocked_irl": 800 } } },
     "KU_b": { "klei_id": "KU_b", "name": "Bob", "prefab": "wendy",
-      "days_survived": 2, "last_seen_irl": 1100, "achievements": {} } } }
+      "days_survived": 2, "last_seen_irl": 1100, "achievements": [] } } }

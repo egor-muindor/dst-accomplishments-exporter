@@ -4,7 +4,9 @@
 # forces shell routing; on CI these dirs are absent and tools resolve from $PATH instead.
 TOOLCHAIN_PATH := /opt/homebrew/opt/lua@5.4/bin:$(HOME)/.luarocks/bin
 LUA_ROCKS_PATH := $(shell luarocks --lua-version 5.4 --lua-dir /opt/homebrew/opt/lua@5.4 path --lr-path 2>/dev/null)
-export LUA_PATH := ./scripts/?.lua;./tools/?.lua;./spec/?.lua;$(LUA_ROCKS_PATH);;
+# Append (not clobber) any inherited LUA_PATH so CI's luarocks-configured path (where
+# dkjson lives on Linux) survives; LUA_ROCKS_PATH covers the local lua@5.4 rocks tree.
+export LUA_PATH := ./scripts/?.lua;./tools/?.lua;./spec/?.lua;$(LUA_ROCKS_PATH);$(LUA_PATH);;
 
 .PHONY: deps lint test schema check merge-fixture clean
 

@@ -15,7 +15,7 @@ Each player entry in the output records:
 - In-game days survived
 - All unlocked Accomplishments achievements, keyed as `"<Category>/<name>"`, each with unlock day and wall-clock timestamp
 
-The unified leaderboard file (`acm_export.json`) is kept fresher than one minute end-to-end by combining the in-game write cadence (≤30 s) with the external merger cadence (≤30 s).
+At the default 30 s write interval, the unified leaderboard file (`acm_export.json`) is refreshed within ~60 s end-to-end (in-game write ≤30 s + external merger ≤30 s). Selecting the 60 s interval option relaxes this bound proportionally.
 
 ---
 
@@ -117,10 +117,13 @@ tools/acm_merge_loop.sh \
 ### Direct invocation (one shot)
 
 ```bash
-lua tools/acm_merge.lua --root <cluster_root> --out <out_file>
+# Run from the mod dir; acm_core (scripts/) and dkjson must be on LUA_PATH:
+eval "$(luarocks path)"   # puts dkjson on LUA_PATH
+LUA_PATH="./scripts/?.lua;./tools/?.lua;${LUA_PATH:-;;}" \
+  lua tools/acm_merge.lua --root <cluster_root> --out <out_file>
 ```
 
-Optional `--prev <path>` overrides the file used as the persistent carry-forward store (defaults to `--out`).
+Optional `--prev <path>` overrides the file used as the persistent carry-forward store (defaults to `--out`). The `acm_merge_loop.sh` and systemd options below set `LUA_PATH` for you.
 
 ### systemd (Linux servers)
 
@@ -133,7 +136,7 @@ systemctl daemon-reload
 systemctl enable --now acm_merge.timer
 ```
 
-**Cadence:** shard writes (≤30 s) + merger (≤30 s) keep the unified file updated within one minute end-to-end.
+**Cadence:** at the default 30 s settings, shard writes (≤30 s) + merger (≤30 s) keep the unified file updated within ~60 s end-to-end. Larger `interval` / `period_seconds` values raise this bound.
 
 ---
 
@@ -245,7 +248,7 @@ make check   # lint + unit tests + schema validation → prints ALL CHECKS PASSE
 
 `tools/check_fresh.sh <acm_export.json> [max_age_seconds]`
 
-Exits 0 if `generated_irl` is within `max_age` seconds of now (default 90 s), exits 1 otherwise. Suitable for a cron or systemd healthcheck.
+Exits 0 if `generated_irl` is within `max_age` seconds of now (default 90 s), exits 1 otherwise. Suitable for a cron or systemd healthcheck. Requires `python3`.
 
 ```bash
 # Example: warn if file is older than 90 s

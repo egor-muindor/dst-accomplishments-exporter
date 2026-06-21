@@ -8,19 +8,31 @@
     "cluster_session": { "type": "string" },
     "shard_id": { "type": "string" },
     "generated_irl": { "type": "number" },
-    "players": { "type": "object", "additionalProperties": { "$ref": "#/$defs/player" } }
+    "players": {
+      "$comment": "object map klei_id -> player; the in-game json encoder emits an empty map as []",
+      "anyOf": [
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/player" } },
+        { "type": "array", "maxItems": 0 }
+      ]
+    }
   },
   "$defs": {
     "player": {
       "type": "object",
-      "required": ["klei_id", "name", "days_survived", "achievements"],
+      "required": ["klei_id", "days_survived", "achievements"],
       "properties": {
         "klei_id": { "type": "string" },
         "name": { "type": "string" },
         "prefab": { "type": ["string", "null"] },
         "days_survived": { "type": "number" },
         "last_seen_irl": { "type": "number" },
-        "achievements": { "type": "object", "additionalProperties": { "$ref": "#/$defs/ach" } }
+        "achievements": {
+          "$comment": "object map; empty achievements encode as [] from the in-game json encoder",
+          "anyOf": [
+            { "type": "object", "additionalProperties": { "$ref": "#/$defs/ach" } },
+            { "type": "array", "maxItems": 0 }
+          ]
+        }
       }
     },
     "ach": {
