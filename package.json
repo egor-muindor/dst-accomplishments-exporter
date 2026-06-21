@@ -2,5 +2,7 @@
   "name": "acm-exporter-schema",
   "version": "1.0.0",
   "private": true,
-  "devDependencies": { "ajv-cli": "^5.0.0" }
+  "devDependencies": {
+    "ajv": "^8.20.0"
+  }
 }

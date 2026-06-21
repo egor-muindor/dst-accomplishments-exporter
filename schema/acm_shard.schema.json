@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "acm_shard.schema.json",
+  "type": "object",
+  "required": ["schema_version", "cluster_session", "shard_id", "generated_irl", "players"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "cluster_session": { "type": "string" },
+    "shard_id": { "type": "string" },
+    "generated_irl": { "type": "number" },
+    "players": { "type": "object", "additionalProperties": { "$ref": "#/$defs/player" } }
+  },
+  "$defs": {
+    "player": {
+      "type": "object",
+      "required": ["klei_id", "name", "days_survived", "achievements"],
+      "properties": {
+        "klei_id": { "type": "string" },
+        "name": { "type": "string" },
+        "prefab": { "type": ["string", "null"] },
+        "days_survived": { "type": "number" },
+        "last_seen_irl": { "type": "number" },
+        "achievements": { "type": "object", "additionalProperties": { "$ref": "#/$defs/ach" } }
+      }
+    },
+    "ach": {
+      "type": "object",
+      "properties": {
+        "title": { "type": ["string", "null"] },
+        "day": { "type": ["number", "null"] },
+        "unlocked_irl": { "type": ["number", "null"] }
+      }
+    }
+  }
+}

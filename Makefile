@@ -26,8 +26,8 @@ merge-fixture:
 	@echo "merged -> build/acm_export.json"
 
 schema: merge-fixture
-	npx ajv validate -s schema/acm_shard.schema.json -d "spec/fixtures/partials/*.json" --spec=draft2020
-	npx ajv validate -s schema/acm_unified.schema.json -d build/acm_export.json --spec=draft2020
+	node tools/validate_schemas.js schema/acm_shard.schema.json "spec/fixtures/partials/*.json"
+	node tools/validate_schemas.js schema/acm_unified.schema.json build/acm_export.json
 
 check: lint test schema
 	@echo "ALL CHECKS PASSED"
