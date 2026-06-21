@@ -3,7 +3,7 @@
 # execs single-word recipes directly, bypassing an exported PATH. The inline PATH= form
 # forces shell routing; on CI these dirs are absent and tools resolve from $PATH instead.
 TOOLCHAIN_PATH := /opt/homebrew/opt/lua@5.4/bin:$(HOME)/.luarocks/bin
-LUA_ROCKS_PATH := $(shell luarocks --lua-version 5.4 path --lr-path 2>/dev/null)
+LUA_ROCKS_PATH := $(shell luarocks --lua-version 5.4 --lua-dir /opt/homebrew/opt/lua@5.4 path --lr-path 2>/dev/null)
 export LUA_PATH := ./scripts/?.lua;./tools/?.lua;./spec/?.lua;$(LUA_ROCKS_PATH);;
 
 .PHONY: deps lint test schema check merge-fixture clean
