@@ -1,6 +1,11 @@
 local M = {}
 
+-- Returns (Category, name) for keys shaped "completed_<Category>_<name>", else nil.
+-- Category has no underscores; name keeps them (split on the first underscore after the
+-- prefix). nil for non-string input and for malformed keys (empty category/name), so
+-- callers can treat it as a total filter.
 function M.parse_completed_key(varname)
+  if type(varname) ~= "string" then return nil end
   local rest = string.match(varname, "^completed_(.+)$")
   if not rest then return nil end
   local cat, name = string.match(rest, "^([^_]+)_(.+)$")
@@ -31,6 +36,10 @@ function M.build_record(on_save, meta)
   }
 end
 
+-- merge_snapshot/merge_player take ownership of snapshot records and alias their
+-- achievement entries into db (no deep copy: snapshots are read fresh each cycle and
+-- discarded, so this is safe and keeps per-tick cost low). Do not reuse a snapshot
+-- table after merging it.
 local function merge_player(existing, incoming, shard_id)
   if not existing then
     incoming.online = true
@@ -47,6 +56,9 @@ local function merge_player(existing, incoming, shard_id)
   existing.achievements = existing.achievements or {}
   for key, ach in pairs(incoming.achievements or {}) do
     local cur = existing.achievements[key]
+    -- Earliest unlock wins: a missing unlocked_irl counts as +inf ("unknown = latest"),
+    -- so a known timestamp replaces an unknown one and re-merging identical data is a
+    -- no-op (strict <).
     if not cur or (ach.unlocked_irl or math.huge) < (cur.unlocked_irl or math.huge) then
       existing.achievements[key] = ach
     end
@@ -66,6 +78,8 @@ function M.mark_all_offline(db)
   return db
 end
 
+-- Returns prev_unified.players BY REFERENCE when the session matches (it becomes the new
+-- db, mutated in place by merge_snapshot), else {} for a world-regen reset.
 function M.select_seed(prev_unified, cur_session)
   if prev_unified and prev_unified.cluster_session and cur_session
      and prev_unified.cluster_session == cur_session then
@@ -74,6 +88,8 @@ function M.select_seed(prev_unified, cur_session)
   return {}
 end
 
+-- Builds the JSON-able export. Does NOT mutate db: each player is shallow-copied and
+-- stamped with achievements_count (the achievements sub-table is shared, read-only).
 function M.build_export(db, meta)
   meta = meta or {}
   local players, count = {}, 0
@@ -81,8 +97,10 @@ function M.build_export(db, meta)
     count = count + 1
     local acount = 0
     for _ in pairs(p.achievements or {}) do acount = acount + 1 end
-    p.achievements_count = acount
-    players[uid] = p
+    local out = {}
+    for k, v in pairs(p) do out[k] = v end
+    out.achievements_count = acount
+    players[uid] = out
   end
   return {
     schema_version = 1,
@@ -93,8 +111,13 @@ function M.build_export(db, meta)
   }
 end
 
+-- True iff (now - generated_irl) <= max_age. Returns false (not error) when any argument
+-- is not a number, so a missing/garbage timestamp reads as "stale".
 function M.is_fresh(generated_irl, now, max_age)
-  if type(generated_irl) ~= "number" then return false end
+  if type(generated_irl) ~= "number" or type(now) ~= "number"
+     or type(max_age) ~= "number" then
+    return false
+  end
   return (now - generated_irl) <= max_age
 end
 
