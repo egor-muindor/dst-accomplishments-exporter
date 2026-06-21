@@ -1,0 +1,41 @@
+local server = require("acm_server")
+
+local function fake_ctx(writes)
+  return {
+    shard_id = "2",
+    get_session = function() return "SESS" end,
+    now = function() return 4242 end,
+    title_of = function(c, n) return c .. ":" .. n end,
+    json_encode = function(t) return t end, -- pass-through so we can assert on the table
+    write = function(fn, data) writes[#writes + 1] = { fn = fn, data = data } end,
+    get_players = function()
+      return {
+        { klei_id = "KU_a", name = "A", prefab = "wilson", days_survived = 3,
+          on_save = { completed_Boss_deerclops = { cycles = 5, irl = 99 }, numKilledPig = 2 } },
+      }
+    end,
+  }
+end
+
+describe("acm_server", function()
+  it("writes a shard partial named by shard id", function()
+    local writes = {}
+    server.write_snapshot(fake_ctx(writes))
+    assert.are.equal(1, #writes)
+    assert.are.equal("acm_export_shard_2.json", writes[1].fn)
+  end)
+
+  it("snapshot has session, shard, generated_irl and online player records", function()
+    local writes = {}
+    local snap = server.write_snapshot(fake_ctx(writes))
+    assert.are.equal("SESS", snap.cluster_session)
+    assert.are.equal("2", snap.shard_id)
+    assert.are.equal(4242, snap.generated_irl)
+    local p = snap.players.KU_a
+    assert.are.equal("A", p.name)
+    assert.are.equal(3, p.days_survived)
+    assert.are.equal(4242, p.last_seen_irl)
+    assert.is_table(p.achievements["Boss/deerclops"])
+    assert.is_nil(p.achievements["numKilledPig"])
+  end)
+end)
