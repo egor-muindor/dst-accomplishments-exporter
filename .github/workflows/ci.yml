@@ -1,0 +1,26 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # DST runs Lua 5.1; CI lints/tests on 5.1 so "green here" reflects the real runtime.
+      - uses: leafo/gh-actions-lua@v10
+        with: { luaVersion: "5.1" }
+      - uses: leafo/gh-actions-luarocks@v4
+      - name: Install Lua deps
+        run: |
+          luarocks install busted
+          luarocks install luacheck
+          luarocks install dkjson
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Install node deps
+        run: npm install
+      - name: Lint
+        run: luacheck .
+      - name: Test
+        run: busted
+      - name: Schema
+        run: make schema
