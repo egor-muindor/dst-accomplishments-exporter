@@ -1,0 +1,46 @@
+local core = require("acm_core")
+
+local function snap(shard, irl, players)
+  return { schema_version = 1, cluster_session = "S1", shard_id = shard,
+           generated_irl = irl, players = players }
+end
+local function rec(uid, days, irl, ach)
+  return { klei_id = uid, name = uid, prefab = "wilson",
+           days_survived = days, last_seen_irl = irl, achievements = ach or {} }
+end
+
+describe("merge_snapshot / mark_all_offline", function()
+  it("adds new players as online with current_shard", function()
+    local db = {}
+    core.merge_snapshot(db, snap("1", 100, { KU_a = rec("KU_a", 5, 100, { ["Boss/deerclops"] = { day = 5, unlocked_irl = 100 } }) }))
+    assert.is_true(db.KU_a.online)
+    assert.are.equal("1", db.KU_a.current_shard)
+    assert.is_table(db.KU_a.achievements["Boss/deerclops"])
+  end)
+
+  it("unions achievements and takes max days across shards", function()
+    local db = {}
+    core.merge_snapshot(db, snap("1", 100, { KU_a = rec("KU_a", 5, 100, { ["Boss/deerclops"] = { day = 5, unlocked_irl = 100 } }) }))
+    core.merge_snapshot(db, snap("2", 120, { KU_a = rec("KU_a", 9, 120, { ["Time/firstnight"] = { day = 1, unlocked_irl = 90 } }) }))
+    assert.are.equal(9, db.KU_a.days_survived)
+    assert.are.equal("2", db.KU_a.current_shard)
+    assert.is_table(db.KU_a.achievements["Boss/deerclops"])
+    assert.is_table(db.KU_a.achievements["Time/firstnight"])
+  end)
+
+  it("is idempotent", function()
+    local db = {}
+    local s = snap("1", 100, { KU_a = rec("KU_a", 5, 100, { ["Boss/deerclops"] = { day = 5, unlocked_irl = 100 } }) })
+    core.merge_snapshot(db, s)
+    core.merge_snapshot(db, s)
+    local n = 0; for _ in pairs(db.KU_a.achievements) do n = n + 1 end
+    assert.are.equal(1, n)
+  end)
+
+  it("mark_all_offline flips online to false", function()
+    local db = {}
+    core.merge_snapshot(db, snap("1", 100, { KU_a = rec("KU_a", 5, 100) }))
+    core.mark_all_offline(db)
+    assert.is_false(db.KU_a.online)
+  end)
+end)

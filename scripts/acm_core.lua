@@ -31,4 +31,39 @@ function M.build_record(on_save, meta)
   }
 end
 
+local function merge_player(existing, incoming, shard_id)
+  if not existing then
+    incoming.online = true
+    incoming.current_shard = shard_id
+    incoming.achievements = incoming.achievements or {}
+    return incoming
+  end
+  existing.online = true
+  existing.current_shard = shard_id
+  existing.name = incoming.name or existing.name
+  existing.prefab = incoming.prefab or existing.prefab
+  existing.days_survived = math.max(existing.days_survived or 0, incoming.days_survived or 0)
+  existing.last_seen_irl = math.max(existing.last_seen_irl or 0, incoming.last_seen_irl or 0)
+  existing.achievements = existing.achievements or {}
+  for key, ach in pairs(incoming.achievements or {}) do
+    local cur = existing.achievements[key]
+    if not cur or (ach.unlocked_irl or math.huge) < (cur.unlocked_irl or math.huge) then
+      existing.achievements[key] = ach
+    end
+  end
+  return existing
+end
+
+function M.merge_snapshot(db, snapshot)
+  for uid, incoming in pairs(snapshot.players or {}) do
+    db[uid] = merge_player(db[uid], incoming, snapshot.shard_id)
+  end
+  return db
+end
+
+function M.mark_all_offline(db)
+  for _, p in pairs(db) do p.online = false end
+  return db
+end
+
 return M
