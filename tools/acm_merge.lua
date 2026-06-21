@@ -10,8 +10,15 @@ end
 local function write_file(path, s)
   local f = assert(io.open(path, "w")); f:write(s); f:close()
 end
+-- DST's TheSim:SetPersistentString writes the payload on disk prefixed with a
+-- "KLEI     1 " persistent-string header (magic + version + padding). Strip it
+-- before decoding; a no-op for the merger's own pure-JSON output / fixtures.
+local function strip_klei_header(s)
+  return (s:gsub("^KLEI%s+%d+%s+", ""))
+end
 local function read_json(path)
   local s = read_file(path); if not s then return nil end
+  s = strip_klei_header(s)
   local ok, t = pcall(dkjson.decode, s)
   if ok and type(t) == "table" then return t end
   return nil

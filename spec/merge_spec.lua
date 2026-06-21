@@ -73,6 +73,23 @@ describe("acm_merge.run", function()
     assert.are.equal(1, res.player_count)
   end)
 
+  it("parses real DST partials carrying the KLEI persistent-string header", function()
+    -- TheSim:SetPersistentString writes the payload on disk prefixed with a
+    -- "KLEI     1 " header (4-char magic, version, padding). The merger reads the
+    -- raw file, so it must strip that header before JSON-decoding it.
+    local dir = TMP .. "/acm_klei"; os.execute("rm -rf " .. dir .. " && mkdir -p " .. dir)
+    local out = dir .. "/acm_export.json"
+    local payload = dkjson.encode({ schema_version = 1, cluster_session = "S1", shard_id = "0",
+      generated_irl = 2000, players = { KU_a = { klei_id = "KU_a", name = "A",
+        days_survived = 3, last_seen_irl = 2000, achievements = {} } } })
+    local f = assert(io.open(dir .. "/acm_export_shard_0.json", "w"))
+    f:write("KLEI     1 " .. payload); f:close()
+    local res = merge.run({ root = dir, out = out })
+    assert.are.equal("S1", res.cluster_session)
+    assert.are.equal(1, res.player_count)
+    assert.is_table(res.players.KU_a)
+  end)
+
   it("skips malformed partials (torn JSON and wrong-typed fields) without crashing", function()
     local dir = TMP .. "/acm_torn"; os.execute("rm -rf " .. dir .. " && mkdir -p " .. dir)
     local out = dir .. "/acm_export.json"
