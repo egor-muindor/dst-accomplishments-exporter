@@ -66,4 +66,36 @@ function M.mark_all_offline(db)
   return db
 end
 
+function M.select_seed(prev_unified, cur_session)
+  if prev_unified and prev_unified.cluster_session and cur_session
+     and prev_unified.cluster_session == cur_session then
+    return prev_unified.players or {}
+  end
+  return {}
+end
+
+function M.build_export(db, meta)
+  meta = meta or {}
+  local players, count = {}, 0
+  for uid, p in pairs(db) do
+    count = count + 1
+    local acount = 0
+    for _ in pairs(p.achievements or {}) do acount = acount + 1 end
+    p.achievements_count = acount
+    players[uid] = p
+  end
+  return {
+    schema_version = 1,
+    cluster_session = meta.cluster_session,
+    generated_irl = meta.generated_irl,
+    player_count = count,
+    players = players,
+  }
+end
+
+function M.is_fresh(generated_irl, now, max_age)
+  if type(generated_irl) ~= "number" then return false end
+  return (now - generated_irl) <= max_age
+end
+
 return M

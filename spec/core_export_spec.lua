@@ -1,0 +1,39 @@
+local core = require("acm_core")
+
+describe("select_seed", function()
+  it("keeps players when session matches", function()
+    local db = core.select_seed({ cluster_session = "S1", players = { KU_a = { klei_id = "KU_a" } } }, "S1")
+    assert.is_table(db.KU_a)
+  end)
+  it("resets when session differs (world regen)", function()
+    local db = core.select_seed({ cluster_session = "OLD", players = { KU_a = {} } }, "NEW")
+    assert.are.same({}, db)
+  end)
+  it("resets on nil prev", function()
+    assert.are.same({}, core.select_seed(nil, "S1"))
+  end)
+end)
+
+describe("build_export", function()
+  it("stamps metadata and counts", function()
+    local db = {
+      KU_a = { klei_id = "KU_a", achievements = { a = {}, b = {} } },
+      KU_b = { klei_id = "KU_b", achievements = {} },
+    }
+    local out = core.build_export(db, { cluster_session = "S1", generated_irl = 555 })
+    assert.are.equal(1, out.schema_version)
+    assert.are.equal("S1", out.cluster_session)
+    assert.are.equal(555, out.generated_irl)
+    assert.are.equal(2, out.player_count)
+    assert.are.equal(2, out.players.KU_a.achievements_count)
+    assert.are.equal(0, out.players.KU_b.achievements_count)
+  end)
+end)
+
+describe("is_fresh", function()
+  it("true within max_age, false beyond", function()
+    assert.is_true(core.is_fresh(1000, 1080, 90))
+    assert.is_false(core.is_fresh(1000, 1200, 90))
+    assert.is_false(core.is_fresh(nil, 1200, 90))
+  end)
+end)
