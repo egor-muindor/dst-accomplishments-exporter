@@ -1,0 +1,4 @@
+{ "schema_version": 1, "cluster_session": "S1", "shard_id": "1", "generated_irl": 1000,
+  "players": { "KU_a": { "klei_id": "KU_a", "name": "Alice", "prefab": "wilson",
+      "days_survived": 5, "last_seen_irl": 1000,
+      "achievements": { "Boss/deerclops": { "title": "Death Perception", "day": 5, "unlocked_irl": 900 } } } } }
