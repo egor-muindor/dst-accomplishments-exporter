@@ -1,0 +1,7 @@
+[Unit]
+Description=Accomplishments Exporter merge
+
+[Service]
+Type=oneshot
+Environment=LUA_PATH=/opt/acm-exporter/scripts/?.lua;/opt/acm-exporter/tools/?.lua;;
+ExecStart=/usr/bin/lua /opt/acm-exporter/tools/acm_merge.lua --root /path/to/cluster --out /path/to/cluster/acm_export.json
