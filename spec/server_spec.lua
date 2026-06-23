@@ -51,4 +51,26 @@ describe("acm_server", function()
     assert.are.equal(100, snap.catalog["Combat/hound"].goal)
     assert.are.equal(47, snap.players.KU_a.progress["Combat/hound"])
   end)
+
+  it("tolerates a ctx without get_catalog: empty catalog, count 0", function()
+    local writes = {}
+    local ctx = fake_ctx(writes)
+    ctx.get_catalog = nil
+    local snap = server.write_snapshot(ctx)
+    assert.are.equal(0, snap.catalog_count)
+    assert.are.same({}, snap.catalog)
+  end)
+
+  it("omits an empty per-player progress map", function()
+    local writes = {}
+    local ctx = fake_ctx(writes)
+    ctx.get_players = function()
+      return {
+        { klei_id = "KU_a", name = "A", prefab = "wilson", days_survived = 3,
+          on_save = { completed_Boss_deerclops = { cycles = 5, irl = 99 } }, progress = {} },
+      }
+    end
+    local snap = server.write_snapshot(ctx)
+    assert.is_nil(snap.players.KU_a.progress)
+  end)
 end)
