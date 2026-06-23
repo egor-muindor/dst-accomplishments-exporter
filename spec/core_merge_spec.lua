@@ -69,22 +69,31 @@ describe("merge_snapshot / mark_all_offline", function()
       { ["Combat/hound"] = 60 }) }))
     assert.are.equal(60, db.KU_a.progress["Combat/hound"])
     assert.are.equal(13, db.KU_a.progress["Time/twenty"])
+    -- reverse order: a later, SMALLER numerator must not overwrite the larger one
+    core.merge_snapshot(db, snap("3", 130, { KU_a = rec("KU_a", 5, 130, {},
+      { ["Combat/hound"] = 50 }) }))
+    assert.are.equal(60, db.KU_a.progress["Combat/hound"])
   end)
 
-  it("drops a progress key once the achievement is completed (completed wins)", function()
+  it("drops a completed progress key while keeping other in-progress keys (completed wins)", function()
     local db = {}
     core.merge_snapshot(db, snap("1", 100, { KU_a = rec("KU_a", 5, 100, {},
-      { ["Combat/hound"] = 99 }) }))
+      { ["Combat/hound"] = 99, ["Time/twenty"] = 5 }) }))
     core.merge_snapshot(db, snap("2", 120, { KU_a = rec("KU_a", 5, 120,
-      { ["Combat/hound"] = { day = 7, unlocked_irl = 110 } }, { ["Combat/hound"] = 100 }) }))
+      { ["Combat/hound"] = { day = 7, unlocked_irl = 110 } },
+      { ["Combat/hound"] = 100, ["Time/twenty"] = 8 }) }))
     assert.is_table(db.KU_a.achievements["Combat/hound"])
-    assert.is_nil((db.KU_a.progress or {})["Combat/hound"])
+    assert.is_nil(db.KU_a.progress["Combat/hound"])      -- completed -> dropped (map still non-nil)
+    assert.are.equal(8, db.KU_a.progress["Time/twenty"]) -- still in progress -> max kept
   end)
 
-  it("omits an empty progress map entirely", function()
+  it("omits an empty progress map entirely, idempotently across re-merge", function()
     local db = {}
-    core.merge_snapshot(db, snap("1", 100, { KU_a = rec("KU_a", 5, 100,
-      { ["Combat/hound"] = { day = 7, unlocked_irl = 110 } }, { ["Combat/hound"] = 100 }) }))
+    local s = snap("1", 100, { KU_a = rec("KU_a", 5, 100,
+      { ["Combat/hound"] = { day = 7, unlocked_irl = 110 } }, { ["Combat/hound"] = 100 }) })
+    core.merge_snapshot(db, s)
+    assert.is_nil(db.KU_a.progress)
+    core.merge_snapshot(db, s)         -- re-merge a snapshot whose only progress key was pruned
     assert.is_nil(db.KU_a.progress)
   end)
 
