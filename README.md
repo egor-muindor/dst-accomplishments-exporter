@@ -218,6 +218,36 @@ Given two shard partials (`spec/fixtures/partials/`), the merged output looks li
 }
 ```
 
+### Schema v2 (catalog + progress)
+
+Each export (shard partial and unified) carries a player-independent **`catalog`** plus a
+per-player **`progress`** map. `schema_version` is `2`. The existing `achievements` map and
+`achievements_count` are unchanged.
+
+```jsonc
+"catalog_count": 246,
+"catalog": {                       // player-independent; identical across shards
+  "Combat/hound":      { "title": "The Houndmaster",    "goal": 100 },
+  "Time/twenty":       { "title": "Not Dead Yet",       "goal": 20  },
+  "Mastery/allcombat": { "title": "Undefeated Warrior", "goal": 13  },
+  "Activity/eyebrella": { "title": "Eye To The Sky!",   "goal": 1   }
+}
+// per player:
+"achievements": { "Social/firstdeath": { "day": 6, "unlocked_irl": 1782048658, "title": "Welcome!" } },
+"achievements_count": 4,
+"progress": { "Combat/hound": 47, "Time/twenty": 13 }  // locked, non-zero only; omitted if empty
+```
+
+- A player's fraction for an achievement `id` is `progress[id] / catalog[id].goal`.
+- **Completed** = `id` is a key of `achievements`. **In progress** = `id` is a key of
+  `progress`. **Locked & not started** = `catalog` keys − `achievements` keys − `progress` keys.
+- `goal` is derived as: meta achievements (`Record` returns `"X/Y"`) → the `Y`; counter
+  achievements → `scripts/acm_goals.lua`; everything else → `1`.
+- Known limitations: a few "lower is better" achievements (e.g. fast-fish time) do not fit
+  the X/Y model — their raw record is emitted and the fraction is not meaningful. Also, if the
+  base mod is changed to a build that emits no catalog while the cluster session is unchanged,
+  the merger keeps carrying the last-known catalog (graceful degradation); a world regen clears it.
+
 ### Schemas
 
 - Shard partial: [`schema/acm_shard.schema.json`](schema/acm_shard.schema.json)

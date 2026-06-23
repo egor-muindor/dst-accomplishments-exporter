@@ -266,6 +266,20 @@ Wire this into a cron healthcheck or systemd watchdog. A persistent non-zero exi
 - **No cross-wipe aggregation.** Carrying scores **across** world regens is intentionally **not** part of the mod or merger. It is planned as a future **external accumulator script** that sits on top of the per-session output.
 - **File output only.** No HTTP export, no shard-RPC transport. Serving the file is the operator's responsibility (§6). Cross-shard data flow is handled by the external merger, not DST's shard RPC.
 - **Exported achievement data** is limited to what `kaachievementmanager:OnSave()` records; in-progress / partial counter values are not exported.
+- **Schema v2 (`catalog` + `progress`):** exports now include a player-independent `catalog`
+  (`"Category/name" → {title, goal}`) and a per-player `progress` map (locked achievements with
+  a non-zero numerator; completed ones live in `achievements`). Frontends render `progress[id] /
+  catalog[id].goal`. The `catalog` is identical across shards; the merger carries it from the
+  newest current-session partial (falling back to the previous output within the same session).
+- **Counter-achievement goals (`scripts/acm_goals.lua`):** the denominators for counter
+  achievements (e.g. kill 100 hounds, survive 20 days) are a maintained table. **Refresh it when
+  the base Accomplishments mod changes a `Check` threshold or adds a counter achievement:**
+  re-extract the `value >= N` thresholds (N > 1) from `scripts/achievements/*.lua` plus the
+  `AMOUNT_*` constants in `kaachievement_utils/constants.lua`, cross-check against
+  `ACHIEVEMENTS_LIST.md`, and update the `spec/goals_spec.lua` anchor values. Meta achievements
+  (`Record` returns `"X/Y"`) need no entry — their goal is parsed live. A missing/stale entry is
+  non-fatal: the goal falls back to `1`, and a disabled (commented-out) base-mod achievement
+  simply never appears in the live catalog.
 
 ---
 
