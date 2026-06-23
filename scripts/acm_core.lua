@@ -13,6 +13,30 @@ function M.parse_completed_key(varname)
   return cat, name
 end
 
+-- Parse a "num/max" progress string (what meta achievements' Record returns).
+-- Returns (num, max) as numbers, or nil for any input that is not "%d+/%d+".
+function M.parse_fraction(s)
+  if type(s) ~= "string" then return nil end
+  local num, max = string.match(s, "^(%d+)/(%d+)$")
+  if not num then return nil end
+  return tonumber(num), tonumber(max)
+end
+
+-- Normalize an achievement Record value to a progress numerator, or nil to omit it.
+--   number -> itself (but 0 -> nil); "X/Y" -> X (but 0 -> nil); boolean/nil/other -> nil.
+function M.normalize_record(r)
+  local t = type(r)
+  if t == "number" then
+    if r == 0 then return nil end
+    return r
+  elseif t == "string" then
+    local num = M.parse_fraction(r)
+    if not num or num == 0 then return nil end
+    return num
+  end
+  return nil
+end
+
 function M.build_record(on_save, meta)
   meta = meta or {}
   local achievements = {}
