@@ -12,10 +12,11 @@ local function make_env()
     userid = "KU_a", name = "Alice", prefab = "wilson",
     components = {
       kaachievementmanager = {
+        numKilledHound = 47, -- live counter: 47/100 -> progress (not yet completed)
         OnSave = function()
           return {
             completed_Boss_deerclops = { cycles = 5, seg = 0.1, irl = 99 },
-            numKilledPig = 3, -- counter: must be filtered out
+            numKilledPig = 3, -- counter: must be filtered out of achievements
           }
         end,
       },
@@ -37,6 +38,26 @@ local function make_env()
     json = { encode = function(t) return dkjson.encode(t) end },
     pcall = pcall,
     GetTrophyTitle = function(c, n) return c .. ":" .. n end,
+    GetKaAchievementLoader = function()
+      return { entries = {
+        Combat = { {
+          name = "hound",
+          Record = function(d) return d and d.numKilledHound end,
+          Check  = function(d) return d and d.numKilledHound and d.numKilledHound >= 100 or false end,
+        } },
+        Activity = { {
+          name = "eyebrella", -- boolean one-shot -> goal 1, no progress
+          Record = function(d) return d and d.hasEyebrella end,
+          Check  = function(d) return d and d.hasEyebrella or false end,
+        } },
+        Mastery = { {
+          name = "allcombat", -- meta: Record({}) -> "n/13"
+          Record = function(d) local n = (d and d.completed_Combat_hound) and 1 or 0
+                               return string.format("%d/%d", n, 13) end,
+          Check  = function(_) return false end,
+        } },
+      } }
+    end,
     KaBroadcastAnnounceTrophy = function(...)
       trophy_calls[#trophy_calls + 1] = { ... }
     end,
@@ -98,6 +119,15 @@ describe("modmain (mock-GLOBAL harness)", function()
     assert.are.equal(12, p.days_survived)
     assert.is_table(p.achievements["Boss/deerclops"])
     assert.is_nil(p.achievements.numKilledPig)
+    -- catalog: goal via acm_goals (counter), meta Record({}) parse, and default 1
+    assert.are.equal(100, decoded.catalog["Combat/hound"].goal)
+    assert.are.equal(13, decoded.catalog["Mastery/allcombat"].goal)
+    assert.are.equal(1, decoded.catalog["Activity/eyebrella"].goal)
+    assert.are.equal(3, decoded.catalog_count)
+    -- progress: only the locked, non-zero counter (47); boolean + zero-meta omitted
+    assert.are.equal(47, p.progress["Combat/hound"])
+    assert.is_nil(p.progress["Activity/eyebrella"])
+    assert.is_nil(p.progress["Mastery/allcombat"])
   end)
 
   it("wraps KaBroadcastAnnounceTrophy: writes on unlock AND calls the original", function()
