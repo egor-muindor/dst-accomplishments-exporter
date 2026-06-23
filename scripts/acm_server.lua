@@ -16,7 +16,7 @@ function M.snapshot(ctx)
     })
   end
   return {
-    schema_version = 1,
+    schema_version = 2,
     cluster_session = ctx.get_session(),
     shard_id = tostring(ctx.shard_id),
     generated_irl = now,

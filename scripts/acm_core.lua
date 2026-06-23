@@ -151,10 +151,12 @@ function M.build_export(db, meta)
     players[uid] = out
   end
   return {
-    schema_version = 1,
+    schema_version = 2,
     cluster_session = meta.cluster_session,
     generated_irl = meta.generated_irl,
     player_count = count,
+    catalog = meta.catalog,
+    catalog_count = meta.catalog_count,
     players = players,
   }
 end

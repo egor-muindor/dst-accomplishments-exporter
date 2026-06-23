@@ -1,4 +1,10 @@
-{ "schema_version": 1, "cluster_session": "S1", "shard_id": "1", "generated_irl": 1000,
+{ "schema_version": 2, "cluster_session": "S1", "shard_id": "1", "generated_irl": 1000,
+  "catalog_count": 2,
+  "catalog": {
+    "Combat/hound": { "title": "The Houndmaster", "goal": 100 },
+    "Time/firstnight": { "title": "The Beginning", "goal": 1 }
+  },
   "players": { "KU_a": { "klei_id": "KU_a", "name": "Alice", "prefab": "wilson",
       "days_survived": 5, "last_seen_irl": 1000,
-      "achievements": { "Boss/deerclops": { "title": "Death Perception", "day": 5, "unlocked_irl": 900 } } } } }
+      "achievements": { "Boss/deerclops": { "title": "Death Perception", "day": 5, "unlocked_irl": 900 } },
+      "progress": { "Combat/hound": 47 } } } }

@@ -1,6 +1,7 @@
-{ "schema_version": 1, "cluster_session": "S1", "shard_id": "2", "generated_irl": 1100,
+{ "schema_version": 2, "cluster_session": "S1", "shard_id": "2", "generated_irl": 1100,
   "players": { "KU_a": { "klei_id": "KU_a", "name": "Alice", "prefab": "wilson",
       "days_survived": 9, "last_seen_irl": 1100,
-      "achievements": { "Time/firstnight": { "title": "The Beginning", "day": 1, "unlocked_irl": 800 } } },
+      "achievements": { "Time/firstnight": { "title": "The Beginning", "day": 1, "unlocked_irl": 800 } },
+      "progress": { "Combat/hound": 60 } },
     "KU_b": { "klei_id": "KU_b", "name": "Bob", "prefab": "wendy",
       "days_survived": 2, "last_seen_irl": 1100, "achievements": [] } } }

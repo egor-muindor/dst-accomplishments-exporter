@@ -21,7 +21,7 @@ describe("build_export", function()
       KU_b = { klei_id = "KU_b", achievements = {} },
     }
     local out = core.build_export(db, { cluster_session = "S1", generated_irl = 555 })
-    assert.are.equal(1, out.schema_version)
+    assert.are.equal(2, out.schema_version)
     assert.are.equal("S1", out.cluster_session)
     assert.are.equal(555, out.generated_irl)
     assert.are.equal(2, out.player_count)
@@ -36,6 +36,20 @@ describe("build_export", function()
     local db = { KU_a = { klei_id = "KU_a", achievements = { a = {} } } }
     core.build_export(db, {})
     assert.is_nil(db.KU_a.achievements_count)
+  end)
+  it("passes catalog and catalog_count through unchanged", function()
+    local out = core.build_export({}, {
+      catalog = { ["Combat/hound"] = { title = "The Houndmaster", goal = 100 } },
+      catalog_count = 1,
+    })
+    assert.are.equal(2, out.schema_version)
+    assert.are.equal(1, out.catalog_count)
+    assert.are.equal(100, out.catalog["Combat/hound"].goal)
+  end)
+  it("omits catalog when none is provided", function()
+    local out = core.build_export({}, {})
+    assert.is_nil(out.catalog)
+    assert.is_nil(out.catalog_count)
   end)
 end)
 

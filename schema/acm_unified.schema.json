@@ -4,10 +4,12 @@
   "type": "object",
   "required": ["schema_version", "cluster_session", "generated_irl", "player_count", "players"],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "cluster_session": { "type": ["string", "null"] },
     "generated_irl": { "type": "number" },
     "player_count": { "type": "integer", "minimum": 0 },
+    "catalog_count": { "type": "integer", "minimum": 0 },
+    "catalog": { "type": "object", "additionalProperties": { "$ref": "#/$defs/cat" } },
     "players": { "type": "object", "additionalProperties": { "$ref": "#/$defs/player" } }
   },
   "$defs": {
@@ -23,7 +25,8 @@
         "days_survived": { "type": "number" },
         "last_seen_irl": { "type": "number" },
         "achievements_count": { "type": "integer", "minimum": 0 },
-        "achievements": { "type": "object", "additionalProperties": { "$ref": "#/$defs/ach" } }
+        "achievements": { "type": "object", "additionalProperties": { "$ref": "#/$defs/ach" } },
+        "progress": { "type": "object", "additionalProperties": { "type": "number" } }
       }
     },
     "ach": {
@@ -32,6 +35,13 @@
         "title": { "type": ["string", "null"] },
         "day": { "type": ["number", "null"] },
         "unlocked_irl": { "type": ["number", "null"] }
+      }
+    },
+    "cat": {
+      "type": "object",
+      "properties": {
+        "title": { "type": ["string", "null"] },
+        "goal": { "type": "number" }
       }
     }
   }
