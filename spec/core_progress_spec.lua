@@ -15,6 +15,9 @@ describe("parse_fraction", function()
     assert.is_nil((core.parse_fraction("hello")))
     assert.is_nil((core.parse_fraction("12")))
     assert.is_nil((core.parse_fraction("1/2/3")))
+    assert.is_nil((core.parse_fraction(" 1/2")))   -- leading whitespace rejected
+    assert.is_nil((core.parse_fraction("1/2 ")))   -- trailing whitespace rejected
+    assert.is_nil((core.parse_fraction("-1/2")))   -- negative numerator rejected
     assert.is_nil((core.parse_fraction(47)))
     assert.is_nil((core.parse_fraction(nil)))
     assert.is_nil((core.parse_fraction(true)))
@@ -28,9 +31,10 @@ describe("normalize_record", function()
   it("returns the numerator of an 'X/Y' string", function()
     assert.are.equal(7, core.normalize_record("7/13"))
   end)
-  it("omits (nil) zero, boolean, nil, and zero fractions", function()
+  it("omits (nil) zero, boolean, nil, malformed strings, and zero fractions", function()
     assert.is_nil(core.normalize_record(0))
     assert.is_nil(core.normalize_record("0/3"))
+    assert.is_nil(core.normalize_record("hello"))   -- malformed (non-fraction) string
     assert.is_nil(core.normalize_record(true))
     assert.is_nil(core.normalize_record(false))
     assert.is_nil(core.normalize_record(nil))
