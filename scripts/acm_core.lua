@@ -60,6 +60,15 @@ function M.build_record(on_save, meta)
   }
 end
 
+-- Drop progress keys that are already completed (present in achievements); return nil
+-- for an empty result so an empty map is never serialized. Mutates `progress` in place.
+local function prune_progress(progress, achievements)
+  if type(progress) ~= "table" then return nil end
+  for key in pairs(achievements or {}) do progress[key] = nil end
+  if next(progress) == nil then return nil end
+  return progress
+end
+
 -- merge_snapshot/merge_player take ownership of snapshot records and alias their
 -- achievement entries into db (no deep copy: snapshots are read fresh each cycle and
 -- discarded, so this is safe and keeps per-tick cost low). Do not reuse a snapshot
@@ -69,6 +78,7 @@ local function merge_player(existing, incoming, shard_id)
     incoming.online = true
     incoming.current_shard = shard_id
     incoming.achievements = incoming.achievements or {}
+    incoming.progress = prune_progress(incoming.progress, incoming.achievements)
     return incoming
   end
   existing.online = true
@@ -87,6 +97,15 @@ local function merge_player(existing, incoming, shard_id)
       existing.achievements[key] = ach
     end
   end
+  -- Union progress across shards taking the max numerator; completed achievements win.
+  local progress = existing.progress or {}
+  for key, val in pairs(incoming.progress or {}) do
+    if type(val) == "number" then
+      local cur = progress[key]
+      if not cur or val > cur then progress[key] = val end
+    end
+  end
+  existing.progress = prune_progress(progress, existing.achievements)
   return existing
 end
 
