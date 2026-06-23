@@ -106,7 +106,8 @@ function M.run(opts, now_fn)
       break
     end
   end
-  if not catalog and prev and type(prev.catalog) == "table" and next(prev.catalog) ~= nil then
+  if not catalog and prev and prev.cluster_session == cur_session
+     and type(prev.catalog) == "table" and next(prev.catalog) ~= nil then
     catalog, catalog_count = prev.catalog, prev.catalog_count
   end
   if catalog and type(catalog_count) ~= "number" then
