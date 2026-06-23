@@ -11,7 +11,8 @@
 --   * meta achievements (Record returns "X/Y")    -> goal parsed live via Record({}).
 --
 -- REFRESH THIS TABLE when the base mod changes a Check threshold or adds a counter
--- achievement. Cross-check against ACHIEVEMENTS_LIST.md. Missing/stale entries are not
+-- achievement. Cross-check against ACHIEVEMENTS_LIST.md (in the research repo root,
+-- outside this mod folder). Missing/stale entries are not
 -- fatal: an unknown counter simply falls back to goal = 1.
 return {
   -- Combat
@@ -37,7 +38,6 @@ return {
   ["Hunt/generic"]           = 10,   -- AMOUNT_MEDSMALL
   ["Hunt/greathunter"]       = 20,   -- AMOUNT_MED
   -- Farming
-  ["Farming/rotcrop"]        = 10,   -- AMOUNT_MEDSMALL
   ["Farming/tilling"]        = 200,  -- inline
   ["Farming/tilling2"]       = 400,  -- inline
   -- Activity

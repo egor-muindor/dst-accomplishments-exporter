@@ -1,5 +1,4 @@
 local goals = require("acm_goals")
-local core = require("acm_core")
 
 describe("acm_goals", function()
   it("pins known counter denominators across categories", function()
@@ -24,9 +23,7 @@ describe("acm_goals", function()
 
   it("every key is a non-empty Category/name and every goal an integer > 1", function()
     for id, goal in pairs(goals) do
-      local cat, name = core.parse_completed_key("completed_" .. id:gsub("/", "_"))
-      assert.is_truthy(cat, "bad id: " .. id)
-      assert.is_truthy(name, "bad id: " .. id)
+      assert.is_truthy(id:match("^%w+/%w+$"), "bad id: " .. id)
       assert.are.equal("number", type(goal))
       assert.is_true(goal > 1, id .. " goal must be > 1")
       assert.are.equal(goal, math.floor(goal))
