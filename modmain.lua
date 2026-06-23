@@ -66,12 +66,10 @@ local function build_ctx()
               for _, entry in ipairs(list) do
                 if type(entry.name) == "string" and entry.Record then
                   local id = category .. "/" .. entry.name
-                  local done = false
-                  if entry.Check then
-                    local okc, c = _G.pcall(entry.Check, mgr)
-                    done = (okc and c) and true or false
-                  end
-                  if not done then
+                  -- If Check throws, completion is unknown -> skip this entry entirely.
+                  local okc, completed = true, false
+                  if entry.Check then okc, completed = _G.pcall(entry.Check, mgr) end
+                  if okc and not completed then
                     local okr, raw = _G.pcall(entry.Record, mgr)
                     if okr then
                       local val = acm_core.normalize_record(raw)
@@ -94,7 +92,10 @@ local function build_ctx()
     write = function(fn, str) _G.TheSim:SetPersistentString(fn, str, false) end,
     json_encode = function(t) return json.encode(t) end,
     title_of = function(cat, name)
-      return _G.GetTrophyTitle and _G.GetTrophyTitle(cat, name) or nil
+      local ok, t = _G.pcall(function()
+        return _G.GetTrophyTitle and _G.GetTrophyTitle(cat, name) or nil
+      end)
+      return ok and t or nil
     end,
   }
 end

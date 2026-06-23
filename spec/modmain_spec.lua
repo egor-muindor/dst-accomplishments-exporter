@@ -138,4 +138,44 @@ describe("modmain (mock-GLOBAL harness)", function()
     assert.are.equal(1, #env.trophy_calls) -- original still invoked
     assert.is_true(#env.writes > before)   -- and a fresh write happened
   end)
+
+  it("skips an entry whose Check throws (does not guess progress)", function()
+    local env = make_env()
+    env.GLOBAL.GetKaAchievementLoader = function()
+      return { entries = { Combat = { {
+        name = "boom",
+        Check = function() error("boom") end,
+        Record = function() return 5 end,
+      } } } }
+    end
+    load_modmain(env)
+    local periodic
+    local fake_world = {
+      DoPeriodicTask = function(_, _interval, fn) periodic = fn end,
+      ListenForEvent = function() end,
+      DoTaskInTime = function() end,
+    }
+    for _, cb in ipairs(env.world_cbs) do cb(fake_world) end
+    periodic()
+    local decoded = dkjson.decode(env.writes[#env.writes].str)
+    assert.are.equal(1, decoded.catalog["Combat/boom"].goal)          -- catalog still lists it (goal 1)
+    assert.is_nil((decoded.players.KU_a.progress or {})["Combat/boom"]) -- progress omitted: status unknown
+  end)
+
+  it("survives a throwing GetTrophyTitle and still writes the snapshot", function()
+    local env = make_env()
+    env.GLOBAL.GetTrophyTitle = function() error("title boom") end
+    load_modmain(env)
+    local periodic
+    local fake_world = {
+      DoPeriodicTask = function(_, _interval, fn) periodic = fn end,
+      ListenForEvent = function() end,
+      DoTaskInTime = function() end,
+    }
+    for _, cb in ipairs(env.world_cbs) do cb(fake_world) end
+    periodic()
+    assert.is_true(#env.writes >= 1)  -- snapshot still produced despite the title failure
+    local decoded = dkjson.decode(env.writes[#env.writes].str)
+    assert.is_table(decoded.players.KU_a.achievements["Boss/deerclops"]) -- achievement recorded (title nil)
+  end)
 end)
