@@ -90,6 +90,30 @@ describe("acm_merge.run", function()
     assert.is_table(res.players.KU_a)
   end)
 
+  it("tolerates DST's invalid \\' title escape and re-emits valid JSON", function()
+    -- DST's in-game json.encode escapes apostrophes as \' (NOT valid JSON); real
+    -- shard partials therefore carry \' inside achievement titles. The merger's
+    -- dkjson decode must accept it (else the partial is skipped -> empty board) and
+    -- the unified output must be valid JSON with a plain apostrophe. Written raw,
+    -- not via dkjson.encode (which would emit a conforming apostrophe).
+    local dir = TMP .. "/acm_apos"; os.execute("rm -rf " .. dir .. " && mkdir -p " .. dir)
+    local out = dir .. "/acm_export.json"
+    local raw = 'KLEI     1 {"schema_version":2,"cluster_session":"S1","shard_id":"1",'
+      .. '"generated_irl":2000,"catalog_count":1,'
+      .. '"catalog":{"Time/thirtyfive":{"title":"Stayin\\\' Alive","goal":35}},'
+      .. '"players":{"KU_a":{"klei_id":"KU_a","name":"A","days_survived":1,'
+      .. '"last_seen_irl":2000,"achievements":{},"progress":{"Time/thirtyfive":3}}}}'
+    local f = assert(io.open(dir .. "/acm_export_shard_1.json", "w")); f:write(raw); f:close()
+    local res = merge.run({ root = dir, out = out })
+    -- decoded (not skipped); the \' became a plain apostrophe
+    assert.are.equal("Stayin' Alive", res.catalog["Time/thirtyfive"].title)
+    assert.are.equal(3, res.players.KU_a.progress["Time/thirtyfive"])
+    -- the unified file on disk is valid JSON with no invalid \' escape left
+    local fh = assert(io.open(out)); local disk = fh:read("*a"); fh:close()
+    assert.is_nil(disk:find("\\'", 1, true))   -- no backslash-apostrophe in output
+    assert.is_table(dkjson.decode(disk))       -- round-trips as valid JSON
+  end)
+
   it("skips malformed partials (torn JSON and wrong-typed fields) without crashing", function()
     local dir = TMP .. "/acm_torn"; os.execute("rm -rf " .. dir .. " && mkdir -p " .. dir)
     local out = dir .. "/acm_export.json"
