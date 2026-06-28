@@ -4,10 +4,18 @@
   "type": "object",
   "required": ["schema_version", "cluster_session", "shard_id", "generated_irl", "players"],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "cluster_session": { "type": "string" },
     "shard_id": { "type": "string" },
     "generated_irl": { "type": "number" },
+    "catalog_count": { "type": "integer", "minimum": 0 },
+    "catalog": {
+      "$comment": "object map id -> {title, goal}; the in-game json encoder emits an empty map as []",
+      "anyOf": [
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/cat" } },
+        { "type": "array", "maxItems": 0 }
+      ]
+    },
     "players": {
       "$comment": "object map klei_id -> player; the in-game json encoder emits an empty map as []",
       "anyOf": [
@@ -32,6 +40,13 @@
             { "type": "object", "additionalProperties": { "$ref": "#/$defs/ach" } },
             { "type": "array", "maxItems": 0 }
           ]
+        },
+        "progress": {
+          "$comment": "object map id -> numerator (locked, non-zero); empty encodes as []",
+          "anyOf": [
+            { "type": "object", "additionalProperties": { "type": "number" } },
+            { "type": "array", "maxItems": 0 }
+          ]
         }
       }
     },
@@ -41,6 +56,13 @@
         "title": { "type": ["string", "null"] },
         "day": { "type": ["number", "null"] },
         "unlocked_irl": { "type": ["number", "null"] }
+      }
+    },
+    "cat": {
+      "type": "object",
+      "properties": {
+        "title": { "type": ["string", "null"] },
+        "goal": { "type": "number" }
       }
     }
   }

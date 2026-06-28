@@ -13,6 +13,30 @@ function M.parse_completed_key(varname)
   return cat, name
 end
 
+-- Parse a "num/max" progress string (what meta achievements' Record returns).
+-- Returns (num, max) as numbers, or nil for any input that is not "%d+/%d+".
+function M.parse_fraction(s)
+  if type(s) ~= "string" then return nil end
+  local num, max = string.match(s, "^(%d+)/(%d+)$")
+  if not num then return nil end
+  return tonumber(num), tonumber(max)
+end
+
+-- Normalize an achievement Record value to a progress numerator, or nil to omit it.
+--   number -> itself (but 0 -> nil); "X/Y" -> X (but 0 -> nil); boolean/nil/other -> nil.
+function M.normalize_record(r)
+  local t = type(r)
+  if t == "number" then
+    if r == 0 then return nil end
+    return r
+  elseif t == "string" then
+    local num = M.parse_fraction(r)
+    if not num or num == 0 then return nil end
+    return num
+  end
+  return nil
+end
+
 function M.build_record(on_save, meta)
   meta = meta or {}
   local achievements = {}
@@ -36,6 +60,15 @@ function M.build_record(on_save, meta)
   }
 end
 
+-- Drop progress keys that are already completed (present in achievements); return nil
+-- for an empty result so an empty map is never serialized. Mutates `progress` in place.
+local function prune_progress(progress, achievements)
+  if type(progress) ~= "table" then return nil end
+  for key in pairs(achievements or {}) do progress[key] = nil end
+  if next(progress) == nil then return nil end
+  return progress
+end
+
 -- merge_snapshot/merge_player take ownership of snapshot records and alias their
 -- achievement entries into db (no deep copy: snapshots are read fresh each cycle and
 -- discarded, so this is safe and keeps per-tick cost low). Do not reuse a snapshot
@@ -45,6 +78,7 @@ local function merge_player(existing, incoming, shard_id)
     incoming.online = true
     incoming.current_shard = shard_id
     incoming.achievements = incoming.achievements or {}
+    incoming.progress = prune_progress(incoming.progress, incoming.achievements)
     return incoming
   end
   existing.online = true
@@ -63,6 +97,15 @@ local function merge_player(existing, incoming, shard_id)
       existing.achievements[key] = ach
     end
   end
+  -- Union progress across shards taking the max numerator; completed achievements win.
+  local progress = existing.progress or {}
+  for key, val in pairs(incoming.progress or {}) do
+    if type(val) == "number" then
+      local cur = progress[key]
+      if not cur or val > cur then progress[key] = val end
+    end
+  end
+  existing.progress = prune_progress(progress, existing.achievements)
   return existing
 end
 
@@ -108,10 +151,12 @@ function M.build_export(db, meta)
     players[uid] = out
   end
   return {
-    schema_version = 1,
+    schema_version = 2,
     cluster_session = meta.cluster_session,
     generated_irl = meta.generated_irl,
     player_count = count,
+    catalog = meta.catalog,
+    catalog_count = meta.catalog_count,
     players = players,
   }
 end

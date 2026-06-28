@@ -12,10 +12,11 @@ local function make_env()
     userid = "KU_a", name = "Alice", prefab = "wilson",
     components = {
       kaachievementmanager = {
+        numKilledHound = 47, -- live counter: 47/100 -> progress (not yet completed)
         OnSave = function()
           return {
             completed_Boss_deerclops = { cycles = 5, seg = 0.1, irl = 99 },
-            numKilledPig = 3, -- counter: must be filtered out
+            numKilledPig = 3, -- counter: must be filtered out of achievements
           }
         end,
       },
@@ -37,6 +38,26 @@ local function make_env()
     json = { encode = function(t) return dkjson.encode(t) end },
     pcall = pcall,
     GetTrophyTitle = function(c, n) return c .. ":" .. n end,
+    GetKaAchievementLoader = function()
+      return { entries = {
+        Combat = { {
+          name = "hound",
+          Record = function(d) return d and d.numKilledHound end,
+          Check  = function(d) return d and d.numKilledHound and d.numKilledHound >= 100 or false end,
+        } },
+        Activity = { {
+          name = "eyebrella", -- boolean one-shot -> goal 1, no progress
+          Record = function(d) return d and d.hasEyebrella end,
+          Check  = function(d) return d and d.hasEyebrella or false end,
+        } },
+        Mastery = { {
+          name = "allcombat", -- meta: Record({}) -> "n/13"
+          Record = function(d) local n = (d and d.completed_Combat_hound) and 1 or 0
+                               return string.format("%d/%d", n, 13) end,
+          Check  = function(_) return false end,
+        } },
+      } }
+    end,
     KaBroadcastAnnounceTrophy = function(...)
       trophy_calls[#trophy_calls + 1] = { ... }
     end,
@@ -98,6 +119,15 @@ describe("modmain (mock-GLOBAL harness)", function()
     assert.are.equal(12, p.days_survived)
     assert.is_table(p.achievements["Boss/deerclops"])
     assert.is_nil(p.achievements.numKilledPig)
+    -- catalog: goal via acm_goals (counter), meta Record({}) parse, and default 1
+    assert.are.equal(100, decoded.catalog["Combat/hound"].goal)
+    assert.are.equal(13, decoded.catalog["Mastery/allcombat"].goal)
+    assert.are.equal(1, decoded.catalog["Activity/eyebrella"].goal)
+    assert.are.equal(3, decoded.catalog_count)
+    -- progress: only the locked, non-zero counter (47); boolean + zero-meta omitted
+    assert.are.equal(47, p.progress["Combat/hound"])
+    assert.is_nil(p.progress["Activity/eyebrella"])
+    assert.is_nil(p.progress["Mastery/allcombat"])
   end)
 
   it("wraps KaBroadcastAnnounceTrophy: writes on unlock AND calls the original", function()
@@ -107,5 +137,45 @@ describe("modmain (mock-GLOBAL harness)", function()
     env.GLOBAL.KaBroadcastAnnounceTrophy("KU_a", "Boss", "deerclops")
     assert.are.equal(1, #env.trophy_calls) -- original still invoked
     assert.is_true(#env.writes > before)   -- and a fresh write happened
+  end)
+
+  it("skips an entry whose Check throws (does not guess progress)", function()
+    local env = make_env()
+    env.GLOBAL.GetKaAchievementLoader = function()
+      return { entries = { Combat = { {
+        name = "boom",
+        Check = function() error("boom") end,
+        Record = function() return 5 end,
+      } } } }
+    end
+    load_modmain(env)
+    local periodic
+    local fake_world = {
+      DoPeriodicTask = function(_, _interval, fn) periodic = fn end,
+      ListenForEvent = function() end,
+      DoTaskInTime = function() end,
+    }
+    for _, cb in ipairs(env.world_cbs) do cb(fake_world) end
+    periodic()
+    local decoded = dkjson.decode(env.writes[#env.writes].str)
+    assert.are.equal(1, decoded.catalog["Combat/boom"].goal)          -- catalog still lists it (goal 1)
+    assert.is_nil((decoded.players.KU_a.progress or {})["Combat/boom"]) -- progress omitted: status unknown
+  end)
+
+  it("survives a throwing GetTrophyTitle and still writes the snapshot", function()
+    local env = make_env()
+    env.GLOBAL.GetTrophyTitle = function() error("title boom") end
+    load_modmain(env)
+    local periodic
+    local fake_world = {
+      DoPeriodicTask = function(_, _interval, fn) periodic = fn end,
+      ListenForEvent = function() end,
+      DoTaskInTime = function() end,
+    }
+    for _, cb in ipairs(env.world_cbs) do cb(fake_world) end
+    periodic()
+    assert.is_true(#env.writes >= 1)  -- snapshot still produced despite the title failure
+    local decoded = dkjson.decode(env.writes[#env.writes].str)
+    assert.is_table(decoded.players.KU_a.achievements["Boss/deerclops"]) -- achievement recorded (title nil)
   end)
 end)

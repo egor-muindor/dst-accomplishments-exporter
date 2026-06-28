@@ -95,6 +95,26 @@ function M.run(opts, now_fn)
   if #partials > 0 then cur_session = partials[#partials].cluster_session end
   if not cur_session and prev then cur_session = prev.cluster_session end
 
+  -- Carry the player-independent catalog from the newest current-session partial that
+  -- has one (partials are sorted oldest -> newest); fall back to the previous output.
+  local catalog, catalog_count = nil, nil
+  for i = #partials, 1, -1 do
+    local pt = partials[i]
+    if pt.cluster_session == cur_session and type(pt.catalog) == "table"
+       and next(pt.catalog) ~= nil then
+      catalog, catalog_count = pt.catalog, pt.catalog_count
+      break
+    end
+  end
+  if not catalog and prev and prev.cluster_session == cur_session
+     and type(prev.catalog) == "table" and next(prev.catalog) ~= nil then
+    catalog, catalog_count = prev.catalog, prev.catalog_count
+  end
+  if catalog and type(catalog_count) ~= "number" then
+    catalog_count = 0
+    for _ in pairs(catalog) do catalog_count = catalog_count + 1 end
+  end
+
   local db = acm_core.select_seed(prev, cur_session)
   acm_core.mark_all_offline(db)
 
@@ -104,10 +124,17 @@ function M.run(opts, now_fn)
     if pt.cluster_session == cur_session then acm_core.merge_snapshot(db, pt) end
   end
 
-  local export = acm_core.build_export(db, { cluster_session = cur_session, generated_irl = now_fn() })
+  local export = acm_core.build_export(db, {
+    cluster_session = cur_session, generated_irl = now_fn(),
+    catalog = catalog, catalog_count = catalog_count,
+  })
   export.cluster_session = export.cluster_session or dkjson.null
   as_object(export.players)
-  for _, p in pairs(export.players) do as_object(p.achievements) end
+  if export.catalog ~= nil then as_object(export.catalog) end
+  for _, p in pairs(export.players) do
+    as_object(p.achievements)
+    if p.progress ~= nil then as_object(p.progress) end
+  end
   write_file(opts.out, dkjson.encode(export, { indent = true }))
   return export
 end

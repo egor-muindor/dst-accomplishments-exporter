@@ -90,6 +90,30 @@ describe("acm_merge.run", function()
     assert.is_table(res.players.KU_a)
   end)
 
+  it("tolerates DST's invalid \\' title escape and re-emits valid JSON", function()
+    -- DST's in-game json.encode escapes apostrophes as \' (NOT valid JSON); real
+    -- shard partials therefore carry \' inside achievement titles. The merger's
+    -- dkjson decode must accept it (else the partial is skipped -> empty board) and
+    -- the unified output must be valid JSON with a plain apostrophe. Written raw,
+    -- not via dkjson.encode (which would emit a conforming apostrophe).
+    local dir = TMP .. "/acm_apos"; os.execute("rm -rf " .. dir .. " && mkdir -p " .. dir)
+    local out = dir .. "/acm_export.json"
+    local raw = 'KLEI     1 {"schema_version":2,"cluster_session":"S1","shard_id":"1",'
+      .. '"generated_irl":2000,"catalog_count":1,'
+      .. '"catalog":{"Time/thirtyfive":{"title":"Stayin\\\' Alive","goal":35}},'
+      .. '"players":{"KU_a":{"klei_id":"KU_a","name":"A","days_survived":1,'
+      .. '"last_seen_irl":2000,"achievements":{},"progress":{"Time/thirtyfive":3}}}}'
+    local f = assert(io.open(dir .. "/acm_export_shard_1.json", "w")); f:write(raw); f:close()
+    local res = merge.run({ root = dir, out = out })
+    -- decoded (not skipped); the \' became a plain apostrophe
+    assert.are.equal("Stayin' Alive", res.catalog["Time/thirtyfive"].title)
+    assert.are.equal(3, res.players.KU_a.progress["Time/thirtyfive"])
+    -- the unified file on disk is valid JSON with no invalid \' escape left
+    local fh = assert(io.open(out)); local disk = fh:read("*a"); fh:close()
+    assert.is_nil(disk:find("\\'", 1, true))   -- no backslash-apostrophe in output
+    assert.is_table(dkjson.decode(disk))       -- round-trips as valid JSON
+  end)
+
   it("skips malformed partials (torn JSON and wrong-typed fields) without crashing", function()
     local dir = TMP .. "/acm_torn"; os.execute("rm -rf " .. dir .. " && mkdir -p " .. dir)
     local out = dir .. "/acm_export.json"
@@ -120,5 +144,77 @@ describe("acm_merge.run", function()
     merge.run({ root = dir, out = out })
     local fh2 = assert(io.open(out)); local raw2 = fh2:read("*a"); fh2:close()
     assert.is_nil(raw2:find("%[%]"))
+  end)
+
+  it("carries catalog/catalog_count and unions per-player progress (max)", function()
+    local out = TMP .. "/acm_unified_cat.json"
+    os.remove(out)
+    local res = merge.run({ root = "spec/fixtures/partials", out = out, prev = out })
+    -- catalog carried from the only partial that has one (shard 1)
+    assert.are.equal(2, res.catalog_count)
+    assert.are.equal(100, res.catalog["Combat/hound"].goal)
+    -- progress unioned by max across shards (47 vs 60)
+    assert.are.equal(60, res.players.KU_a.progress["Combat/hound"])
+  end)
+
+  it("encodes catalog and progress as JSON objects, never []", function()
+    local out = TMP .. "/acm_unified_obj2.json"
+    os.remove(out)
+    merge.run({ root = "spec/fixtures/partials", out = out, prev = out })
+    local fh = assert(io.open(out)); local raw = fh:read("*a"); fh:close()
+    assert.is_truthy(raw:find('"catalog"%s*:%s*{'))
+    assert.is_truthy(raw:find('"progress"%s*:%s*{'))
+    assert.is_nil(raw:find('"catalog"%s*:%s*%['))
+    assert.is_nil(raw:find('"progress"%s*:%s*%['))
+  end)
+
+  it("uses the catalog from the newest current-session partial (newest wins)", function()
+    local dir = TMP .. "/acm_catnew"; os.execute("rm -rf " .. dir .. " && mkdir -p " .. dir)
+    local out = dir .. "/acm_export.json"
+    write(dir .. "/acm_export_shard_1.json", { schema_version = 2, cluster_session = "S1", shard_id = "1",
+      generated_irl = 1000, catalog_count = 1, catalog = { ["Combat/hound"] = { title = "Old", goal = 50 } },
+      players = { KU_a = { klei_id = "KU_a", name = "A", days_survived = 1, last_seen_irl = 1000, achievements = {} } } })
+    write(dir .. "/acm_export_shard_2.json", { schema_version = 2, cluster_session = "S1", shard_id = "2",
+      generated_irl = 2000, catalog_count = 1, catalog = { ["Combat/hound"] = { title = "New", goal = 100 } },
+      players = { KU_b = { klei_id = "KU_b", name = "B", days_survived = 1, last_seen_irl = 2000, achievements = {} } } })
+    local res = merge.run({ root = dir, out = out })
+    assert.are.equal(100, res.catalog["Combat/hound"].goal)   -- newest (shard 2) wins
+    assert.are.equal("New", res.catalog["Combat/hound"].title)
+  end)
+
+  it("falls back to the previous output's catalog (same session) when no partial has one", function()
+    local dir = TMP .. "/acm_catfb"; os.execute("rm -rf " .. dir .. " && mkdir -p " .. dir)
+    local out = dir .. "/acm_export.json"
+    write(out, { schema_version = 2, cluster_session = "S1", generated_irl = 1, player_count = 0,
+      catalog_count = 1, catalog = { ["Time/twenty"] = { title = "Not Dead Yet", goal = 20 } }, players = {} })
+    write(dir .. "/acm_export_shard_1.json", { schema_version = 2, cluster_session = "S1", shard_id = "1",
+      generated_irl = 2000,
+      players = { KU_a = { klei_id = "KU_a", name = "A", days_survived = 1, last_seen_irl = 2000, achievements = {} } } })
+    local res = merge.run({ root = dir, out = out, prev = out })
+    assert.are.equal(20, res.catalog["Time/twenty"].goal)
+    assert.are.equal(1, res.catalog_count)
+  end)
+
+  it("drops a stale catalog on session change (does not carry across world regen)", function()
+    local dir = TMP .. "/acm_catregen"; os.execute("rm -rf " .. dir .. " && mkdir -p " .. dir)
+    local out = dir .. "/acm_export.json"
+    write(out, { schema_version = 2, cluster_session = "OLD", generated_irl = 1, player_count = 0,
+      catalog_count = 1, catalog = { ["Combat/hound"] = { title = "Stale", goal = 100 } }, players = {} })
+    write(dir .. "/acm_export_shard_1.json", { schema_version = 2, cluster_session = "NEW", shard_id = "1",
+      generated_irl = 2000,
+      players = { KU_a = { klei_id = "KU_a", name = "A", days_survived = 1, last_seen_irl = 2000, achievements = {} } } })
+    local res = merge.run({ root = dir, out = out, prev = out })
+    assert.are.equal("NEW", res.cluster_session)
+    assert.is_nil(res.catalog)   -- old-session catalog not carried
+  end)
+
+  it("recomputes catalog_count when a partial omits it", function()
+    local dir = TMP .. "/acm_catcount"; os.execute("rm -rf " .. dir .. " && mkdir -p " .. dir)
+    local out = dir .. "/acm_export.json"
+    write(dir .. "/acm_export_shard_1.json", { schema_version = 2, cluster_session = "S1", shard_id = "1",
+      generated_irl = 1000, catalog = { ["Combat/hound"] = { title = "H", goal = 100 }, ["Time/twenty"] = { title = "T", goal = 20 } },
+      players = { KU_a = { klei_id = "KU_a", name = "A", days_survived = 1, last_seen_irl = 2000, achievements = {} } } })
+    local res = merge.run({ root = dir, out = out })
+    assert.are.equal(2, res.catalog_count)   -- recomputed from the 2-entry catalog
   end)
 end)
