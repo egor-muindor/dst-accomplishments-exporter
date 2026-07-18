@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "acm_world.schema.json",
+  "type": "object",
+  "required": ["schema_version", "cluster_session", "shard_id", "is_master", "generated_irl", "worldstate", "counts"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "cluster_session": { "type": "string" },
+    "shard_id": { "type": "string" },
+    "is_master": { "type": "boolean" },
+    "generated_irl": { "type": "number" },
+    "worldstate": {
+      "$comment": "season/cycles/phase may each be absent before the world fully initializes; a fully-empty map encodes as [] from the in-game json encoder",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "season": { "type": "string" },
+            "cycles": { "type": "number" },
+            "phase": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        { "type": "array", "maxItems": 0 }
+      ]
+    },
+    "counts": {
+      "$comment": "map prefab name -> live entity count; every configured prefab is present, zeros included, so the map is never empty (no {}-vs-[] ambiguity)",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    }
+  }
+}

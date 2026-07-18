@@ -30,6 +30,7 @@ merge-fixture:
 schema: merge-fixture
 	node tools/validate_schemas.js schema/acm_shard.schema.json "spec/fixtures/partials/*.json"
 	node tools/validate_schemas.js schema/acm_unified.schema.json build/acm_export.json
+	node tools/validate_schemas.js schema/acm_world.schema.json "spec/fixtures/world/*.json"
 
 check: lint test schema
 	@echo "ALL CHECKS PASSED"
