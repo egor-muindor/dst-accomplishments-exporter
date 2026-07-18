@@ -6,8 +6,11 @@ if _G.TheNet:GetIsClient() then return end
 local acm_server = require("acm_server")
 local acm_core = require("acm_core")
 local acm_goals = require("acm_goals")
+local acm_world = require("acm_world")
 local json = _G.json
 local interval = (GetModConfigData and GetModConfigData("interval")) or 30
+local world_interval = (GetModConfigData and GetModConfigData("world_interval")) or 60
+local world_prefabs = GetModConfigData and GetModConfigData("world_prefabs")
 
 -- Resolve an achievement's denominator (the "Y" in X/Y):
 --   1) meta: Record({}) returns a "num/max" string  -> max;
@@ -114,6 +117,49 @@ AddPrefabPostInit("world", function(world)
   -- merge step (max days + earliest unlock) on the next cycle.
   world:DoTaskInTime(5, WriteNow)
 end)
+
+-- World export (prefab counts + worldstate): enabled only when modoverrides.lua sets
+-- world_prefabs to a non-empty list. Independent of the achievements pipeline.
+if acm_world.is_enabled(world_prefabs) then
+  local function build_world_ctx()
+    return {
+      shard_id = (_G.TheShard and _G.TheShard:GetShardId()) or "0",
+      is_master = (_G.TheShard and _G.TheShard:IsMaster()) or false,
+      world_prefabs = world_prefabs,
+      get_session = function()
+        local w = _G.TheWorld
+        local ss = w and w.net and w.net.components and w.net.components.shardstate
+        return (ss and ss:GetMasterSessionId()) or "unknown"
+      end,
+      get_worldstate = function()
+        local w = _G.TheWorld
+        local d = w and w.components and w.components.worldstate
+                  and w.components.worldstate.data
+        return { season = d and d.season, cycles = d and d.cycles, phase = d and d.phase }
+      end,
+      iterate_prefabs = function()
+        local k, inst
+        return function()
+          repeat k, inst = next(_G.Ents or {}, k) until k == nil or inst.prefab ~= nil
+          return inst and inst.prefab
+        end
+      end,
+      now = function() return (_G.os and _G.os.time()) or 0 end,
+      write = function(fn, str) _G.TheSim:SetPersistentString(fn, str, false) end,
+      json_encode = function(t) return json.encode(t) end,
+    }
+  end
+
+  local function WriteWorldNow()
+    local ok, err = _G.pcall(function() acm_world.write_snapshot(build_world_ctx()) end)
+    if not ok then print("[ACM-Exporter] world write failed: " .. tostring(err)) end
+  end
+
+  AddPrefabPostInit("world", function(world)
+    world:DoPeriodicTask(world_interval, WriteWorldNow)
+    world:DoTaskInTime(10, WriteWorldNow)
+  end)
+end
 
 -- Low-latency: rewrite immediately on a fresh unlock by wrapping the global.
 local unlock_hooked = false
