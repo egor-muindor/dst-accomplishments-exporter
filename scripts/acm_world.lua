@@ -4,14 +4,14 @@ local PREFIX = "acm_world_shard_"
 function M.filename(ctx) return PREFIX .. tostring(ctx.shard_id) .. ".json" end
 
 -- The string entries of the configured list, lowercased. Shared by is_enabled and
--- count_prefabs so they can never disagree on degenerate input. Iterates the full
--- array part (1..#) rather than ipairs so a nil hole (e.g. an unquoted prefab name
--- in modoverrides.lua) does not silently drop the valid entries after it.
+-- count_prefabs so they can never disagree on degenerate input. Iterates with pairs
+-- rather than ipairs/1..# because a nil hole (e.g. an unquoted prefab name in
+-- modoverrides.lua) makes # undefined in Lua 5.1 and would silently drop valid
+-- entries; order does not matter — the names only ever become set keys.
 local function normalized_names(prefab_list)
   local names = {}
   if type(prefab_list) ~= "table" then return names end
-  for i = 1, #prefab_list do
-    local name = prefab_list[i]
+  for _, name in pairs(prefab_list) do
     if type(name) == "string" then names[#names + 1] = string.lower(name) end
   end
   return names
