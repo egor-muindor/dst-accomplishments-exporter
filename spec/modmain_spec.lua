@@ -37,6 +37,7 @@ local function make_env()
     end },
     json = { encode = function(t) return dkjson.encode(t) end },
     pcall = pcall,
+    next = next, -- real _G has next; the mod sandbox does NOT (modmain must use _G.next)
     GetTrophyTitle = function(c, n) return c .. ":" .. n end,
     GetKaAchievementLoader = function()
       return { entries = {

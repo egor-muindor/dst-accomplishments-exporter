@@ -17,7 +17,9 @@ Intended as a lookup reference when picking prefabs for the world-export config
   `MakeWarg({name = "..."})`). Verified complete against the chester_bot overworld/caves
   lists (64/64 found). A handful of exotically-constructed names could still be missing;
   the authoritative source is the `Prefabs` table on a running server:
-  `for k in pairs(Prefabs) do print(k) end`.
+  `for k in pairs(Prefabs) do print(k) end`. A live dump on the test server (2026-07-18)
+  registered 7855 entries — the extra ~4800 are skins, dynamic variants and mod prefabs,
+  which is why this curated list is smaller.
 
 **Regenerate** (on a machine with the DST server files):
 

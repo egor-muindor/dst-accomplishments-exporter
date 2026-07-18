@@ -140,7 +140,7 @@ if acm_world.is_enabled(world_prefabs) then
       iterate_prefabs = function()
         local k, inst
         return function()
-          repeat k, inst = next(_G.Ents or {}, k) until k == nil or inst.prefab ~= nil
+          repeat k, inst = _G.next(_G.Ents or {}, k) until k == nil or inst.prefab ~= nil
           return inst and inst.prefab
         end
       end,
