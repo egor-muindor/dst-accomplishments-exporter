@@ -62,6 +62,7 @@ modmain.lua
 scripts/
   acm_core.lua
   acm_server.lua
+  acm_goals.lua
   acm_world.lua
 ```
 
@@ -303,11 +304,12 @@ Top-level fields:
 | `shard_id` | string | Writing shard's id |
 | `is_master` | boolean | `true` on the master shard (overworld), `false` on e.g. Caves |
 | `generated_irl` | number | Unix timestamp of this write |
-| `worldstate` | object | `season` (string), `cycles` (number), `phase` (string) |
+| `worldstate` | object \| `[]` | `season` (string), `cycles` (number), `phase` (string). Each field may be absent before the world fully initializes; a fully-empty map encodes as `[]` (the in-game JSON encoder cannot distinguish `{}` from `[]`), so consumers must guard for the empty-array shape |
 | `counts` | object | Map of prefab name → live entity count |
 
 **Every configured prefab is always present in `counts`, including zeros** — zero is
-signal ("the dragonfly is dead"). Example:
+signal ("the dragonfly is dead"). `counts` is therefore never empty and always encodes
+as a JSON object. Example:
 
 ```json
 {

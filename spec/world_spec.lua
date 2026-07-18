@@ -46,6 +46,16 @@ describe("acm_world", function()
       assert.is_false(world.is_enabled(42))
       assert.is_false(world.is_enabled({}))
     end)
+
+    it("is false when no entry is a string (counts would encode as [])", function()
+      assert.is_false(world.is_enabled({ 42 }))
+      assert.is_false(world.is_enabled({ { "dragonfly" }, { "bearger" } }))
+    end)
+
+    it("is true when a hole precedes a valid entry (unquoted-name typo)", function()
+      -- modoverrides typo `{ dragonfly, "bearger" }`: the unquoted name is nil
+      assert.is_true(world.is_enabled({ nil, "bearger" }))
+    end)
   end)
 
   describe("count_prefabs", function()
@@ -73,6 +83,14 @@ describe("acm_world", function()
       local counts = world.count_prefabs(iter_of({ "dragonfly" }), { "DragonFly" })
       assert.are.equal(1, counts.dragonfly)
       assert.is_nil(counts.DragonFly)
+    end)
+
+    it("keeps entries after a hole and drops non-strings (agrees with is_enabled)", function()
+      local counts = world.count_prefabs(iter_of({ "bearger" }), { nil, "bearger" })
+      assert.are.equal(1, counts.bearger)
+      counts = world.count_prefabs(iter_of({}), { 42, "reeds" })
+      assert.are.equal(0, counts.reeds)
+      assert.is_nil(counts[42])
     end)
   end)
 

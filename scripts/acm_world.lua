@@ -3,10 +3,25 @@ local PREFIX = "acm_world_shard_"
 
 function M.filename(ctx) return PREFIX .. tostring(ctx.shard_id) .. ".json" end
 
--- Enabled only for a non-empty array: modinfo's declared default is `false`, and an
--- empty list would serialize counts as the ambiguous {}-vs-[] empty table.
+-- The string entries of the configured list, lowercased. Shared by is_enabled and
+-- count_prefabs so they can never disagree on degenerate input. Iterates the full
+-- array part (1..#) rather than ipairs so a nil hole (e.g. an unquoted prefab name
+-- in modoverrides.lua) does not silently drop the valid entries after it.
+local function normalized_names(prefab_list)
+  local names = {}
+  if type(prefab_list) ~= "table" then return names end
+  for i = 1, #prefab_list do
+    local name = prefab_list[i]
+    if type(name) == "string" then names[#names + 1] = string.lower(name) end
+  end
+  return names
+end
+
+-- Enabled only for an array with >=1 string entry: modinfo's declared default is
+-- `false`, and a list yielding zero usable names would serialize counts as the
+-- ambiguous {}-vs-[] empty table (the schema requires a non-empty object).
 function M.is_enabled(world_prefabs)
-  return type(world_prefabs) == "table" and #world_prefabs > 0
+  return #normalized_names(world_prefabs) > 0
 end
 
 -- prefab_iter: iterator function yielding prefab-name strings (nil terminates).
@@ -14,8 +29,8 @@ end
 -- Config names are normalized to lowercase; live prefab names are lowercase already.
 function M.count_prefabs(prefab_iter, prefab_list)
   local counts = {}
-  for _, name in ipairs(prefab_list or {}) do
-    if type(name) == "string" then counts[string.lower(name)] = 0 end
+  for _, name in ipairs(normalized_names(prefab_list)) do
+    counts[name] = 0
   end
   for name in prefab_iter do
     if counts[name] then counts[name] = counts[name] + 1 end

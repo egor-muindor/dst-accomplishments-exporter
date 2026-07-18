@@ -196,15 +196,22 @@ describe("modmain (mock-GLOBAL harness)", function()
       [104] = {}, -- entity without a prefab must be skipped
     }
     load_modmain(env)
-    local periodics = {}
+    local periodics, initials = {}, {}
     local fake_world = {
       DoPeriodicTask = function(_, interval, fn) periodics[interval] = fn end,
       ListenForEvent = function() end,
-      DoTaskInTime = function() end,
+      DoTaskInTime = function(_, delay, fn) initials[delay] = fn end,
     }
     for _, cb in ipairs(env.world_cbs) do cb(fake_world) end
+    -- Spec: one initial world write ~10 s after world load, before the first
+    -- periodic tick (the achievements pipeline registers its own at ~5 s).
+    assert.is_function(initials[10])
+    initials[10]()
+    assert.are.equal("acm_world_shard_2.json", env.writes[#env.writes].fn)
+    local writes_after_initial = #env.writes
     assert.is_function(periodics[60])
     periodics[60]()
+    assert.is_true(#env.writes > writes_after_initial)
     local w = env.writes[#env.writes]
     assert.are.equal("acm_world_shard_2.json", w.fn)
     local decoded = dkjson.decode(w.str)

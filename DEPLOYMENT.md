@@ -41,6 +41,8 @@ modmain.lua
 scripts/
   acm_core.lua
   acm_server.lua
+  acm_goals.lua
+  acm_world.lua
 ```
 
 **Host-side tools** (these run on the cluster host only — **not** part of the in-game mod):
@@ -91,7 +93,12 @@ serverfiles/mods/acm-exporter/
   modmain.lua
   scripts/acm_core.lua
   scripts/acm_server.lua
+  scripts/acm_goals.lua
+  scripts/acm_world.lua
 ```
+
+All four `scripts/` modules are `require`d unconditionally by `modmain.lua` — a missing
+one aborts the whole mod at load on every shard.
 
 The folder name `acm-exporter` is the mod's identity for local mods — it must match exactly in `modoverrides.lua` below.
 
