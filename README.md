@@ -62,6 +62,8 @@ modmain.lua
 scripts/
   acm_core.lua
   acm_server.lua
+  acm_goals.lua
+  acm_world.lua
 ```
 
 The mod is server-only (`server_only_mod = true`). Clients do **not** need it.
@@ -77,11 +79,13 @@ The `tools/` and `schema/` directories are **not** part of the in-game mod. They
 
 ### Configuration
 
-One option is exposed in the mod's in-game config:
+Options exposed in the mod's config (all overridable via `modoverrides.lua`):
 
 | Option | Values | Default | Description |
 |--------|--------|---------|-------------|
 | `interval` | 15 / 30 / 60 | 30 | How often (seconds) each shard rewrites its partial file |
+| `world_interval` | 30 / 60 / 120 | 60 | How often (seconds) each shard rewrites its world snapshot |
+| `world_prefabs` | `false` or a list | `false` | `false` = world export disabled; a Lua array of prefab names enables it (see [World export](#world-export-prefab-counts--worldstate)) |
 
 ---
 
@@ -252,8 +256,72 @@ per-player **`progress`** map. `schema_version` is `2`. The existing `achievemen
 
 - Shard partial: [`schema/acm_shard.schema.json`](schema/acm_shard.schema.json)
 - Unified output: [`schema/acm_unified.schema.json`](schema/acm_unified.schema.json)
+- World snapshot: [`schema/acm_world.schema.json`](schema/acm_world.schema.json)
 
-Both use JSON Schema draft 2020-12.
+All use JSON Schema draft 2020-12.
+
+---
+
+## World export (prefab counts + worldstate)
+
+Optionally, each shard also exports a snapshot of the live world: the current entity
+counts of a configured list of prefabs (bosses alive, resources, mobs, …) plus basic
+world state (season, day count, day phase). Disabled by default; enabled per shard by
+setting `world_prefabs` in `modoverrides.lua`:
+
+```lua
+["acm-exporter"] = {
+  enabled = true,
+  configuration_options = {
+    interval = 30,          -- existing achievements option, unchanged
+    world_interval = 60,
+    world_prefabs = {
+      "dragonfly", "bearger", "deerclops", "klaus_sack",
+      "beefalo", "merm", "knight", "bishop", "rook",
+      "reeds", "tumbleweed", "lunarrift_portal",
+    },
+  },
+},
+```
+
+Master and Caves each carry their own list. Prefab names are matched against
+`inst.prefab` of every live entity (same semantics as `c_countprefabs`, one pass for the
+whole list); use [`PREFAB_LIST.md`](PREFAB_LIST.md) as the name reference. Config names
+are normalized to lowercase.
+
+Each shard writes `acm_world_shard_<shardid>.json` into its persistent-storage folder,
+next to `acm_export_shard_<shardid>.json`, every `world_interval` seconds (plus once
+~10 s after world load). **Consumers read the per-shard files directly — the external
+merger is not involved.** On disk the file carries DST's `KLEI     1 ` header before the
+JSON; consumers must strip it (same as the merger does for the achievements partials).
+
+Top-level fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `schema_version` | integer | Always `1` |
+| `cluster_session` | string | Master session id; changes on world regen |
+| `shard_id` | string | Writing shard's id |
+| `is_master` | boolean | `true` on the master shard (overworld), `false` on e.g. Caves |
+| `generated_irl` | number | Unix timestamp of this write |
+| `worldstate` | object \| `[]` | `season` (string), `cycles` (number), `phase` (string). Each field may be absent before the world fully initializes; a fully-empty map encodes as `[]` (the in-game JSON encoder cannot distinguish `{}` from `[]`), so consumers must guard for the empty-array shape |
+| `counts` | object | Map of prefab name → live entity count |
+
+**Every configured prefab is always present in `counts`, including zeros** — zero is
+signal ("the dragonfly is dead"). `counts` is therefore never empty and always encodes
+as a JSON object. Example:
+
+```json
+{
+  "schema_version": 1,
+  "cluster_session": "0000000123456789",
+  "shard_id": "1",
+  "is_master": true,
+  "generated_irl": 1784500000,
+  "worldstate": { "season": "winter", "cycles": 213, "phase": "day" },
+  "counts": { "dragonfly": 1, "bearger": 0, "knight": 14, "reeds": 87 }
+}
+```
 
 ---
 
@@ -270,7 +338,7 @@ make check   # lint + unit tests + schema validation → prints ALL CHECKS PASSE
 
 1. **`make lint`** — `luacheck .` (static analysis)
 2. **`make test`** — `busted` (unit tests in `spec/`: core, server, merger)
-3. **`make schema`** — builds `build/acm_export.json` from the fixture partials, then validates all `spec/fixtures/partials/*.json` against `schema/acm_shard.schema.json` and `build/acm_export.json` against `schema/acm_unified.schema.json` using `ajv` (via `tools/validate_schemas.js`)
+3. **`make schema`** — builds `build/acm_export.json` from the fixture partials, then validates all `spec/fixtures/partials/*.json` against `schema/acm_shard.schema.json`, `build/acm_export.json` against `schema/acm_unified.schema.json`, and all `spec/fixtures/world/*.json` against `schema/acm_world.schema.json` using `ajv` (via `tools/validate_schemas.js`)
 
 **Lua version note:** The Makefile is wired for a macOS Homebrew **Lua 5.4** toolchain (`lua@5.4`), because luacheck is incompatible with Lua 5.5. The mod code itself is **Lua 5.1**-compatible (DST's runtime). CI (`.github/workflows/ci.yml`) runs the full suite on **Lua 5.1** to match the real runtime.
 

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "cluster_session": "0000000123456789",
+  "shard_id": "2",
+  "is_master": false,
+  "generated_irl": 1784500003,
+  "worldstate": [],
+  "counts": { "batbat": 3, "toadstool_cap": 0 }
+}

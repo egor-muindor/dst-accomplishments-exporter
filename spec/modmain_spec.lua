@@ -37,6 +37,7 @@ local function make_env()
     end },
     json = { encode = function(t) return dkjson.encode(t) end },
     pcall = pcall,
+    next = next, -- real _G has next; the mod sandbox does NOT (modmain must use _G.next)
     GetTrophyTitle = function(c, n) return c .. ":" .. n end,
     GetKaAchievementLoader = function()
       return { entries = {
@@ -160,6 +161,68 @@ describe("modmain (mock-GLOBAL harness)", function()
     local decoded = dkjson.decode(env.writes[#env.writes].str)
     assert.are.equal(1, decoded.catalog["Combat/boom"].goal)          -- catalog still lists it (goal 1)
     assert.is_nil((decoded.players.KU_a.progress or {})["Combat/boom"]) -- progress omitted: status unknown
+  end)
+
+  it("does not write a world snapshot when world_prefabs is unset", function()
+    local env = make_env()
+    load_modmain(env)
+    local fake_world = {
+      DoPeriodicTask = function(_, _interval, fn) fn() end,
+      ListenForEvent = function() end,
+      DoTaskInTime = function(_, _delay, fn) fn() end,
+    }
+    for _, cb in ipairs(env.world_cbs) do cb(fake_world) end
+    for _, w in ipairs(env.writes) do
+      assert.no_match("^acm_world_shard_", w.fn)
+    end
+  end)
+
+  it("writes a world snapshot with zero-filled counts when world_prefabs is set", function()
+    local env = make_env()
+    local base_cfg = env.GetModConfigData
+    env.GetModConfigData = function(name)
+      if name == "world_interval" then return 60 end
+      if name == "world_prefabs" then return { "Dragonfly", "reeds", "bearger" } end
+      return base_cfg(name)
+    end
+    env.GLOBAL.TheShard.IsMaster = function() return true end
+    env.GLOBAL.TheWorld.components = {
+      worldstate = { data = { season = "winter", cycles = 213, phase = "day" } },
+    }
+    env.GLOBAL.Ents = {
+      [100] = { prefab = "dragonfly" },
+      [101] = { prefab = "reeds" },
+      [102] = { prefab = "reeds" },
+      [103] = { prefab = "spider" },
+      [104] = {}, -- entity without a prefab must be skipped
+    }
+    load_modmain(env)
+    local periodics, initials = {}, {}
+    local fake_world = {
+      DoPeriodicTask = function(_, interval, fn) periodics[interval] = fn end,
+      ListenForEvent = function() end,
+      DoTaskInTime = function(_, delay, fn) initials[delay] = fn end,
+    }
+    for _, cb in ipairs(env.world_cbs) do cb(fake_world) end
+    -- Spec: one initial world write ~10 s after world load, before the first
+    -- periodic tick (the achievements pipeline registers its own at ~5 s).
+    assert.is_function(initials[10])
+    initials[10]()
+    assert.are.equal("acm_world_shard_2.json", env.writes[#env.writes].fn)
+    local writes_after_initial = #env.writes
+    assert.is_function(periodics[60])
+    periodics[60]()
+    assert.is_true(#env.writes > writes_after_initial)
+    local w = env.writes[#env.writes]
+    assert.are.equal("acm_world_shard_2.json", w.fn)
+    local decoded = dkjson.decode(w.str)
+    assert.are.equal(1, decoded.schema_version)
+    assert.are.equal("SESS", decoded.cluster_session)
+    assert.are.equal("2", decoded.shard_id)
+    assert.is_true(decoded.is_master)
+    assert.are.equal(4242, decoded.generated_irl)
+    assert.are.same({ season = "winter", cycles = 213, phase = "day" }, decoded.worldstate)
+    assert.are.same({ dragonfly = 1, reeds = 2, bearger = 0 }, decoded.counts)
   end)
 
   it("survives a throwing GetTrophyTitle and still writes the snapshot", function()
